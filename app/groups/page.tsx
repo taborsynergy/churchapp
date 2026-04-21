@@ -34,7 +34,7 @@ export default function GroupsPage() {
 
   async function load() {
     const [{ data: g }, { data: m }] = await Promise.all([
-      supabase.from('groups').select('*, users(full_name), group_members(*)').eq('is_published', true),
+      supabase.from('groups').select('*, church_users(full_name), group_members(*)').eq('is_published', true),
       user ? supabase.from('group_members').select('group_id').eq('user_id', user.id) : Promise.resolve({ data: [] }),
     ]);
     setGroups(g ?? []);

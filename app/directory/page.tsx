@@ -24,7 +24,7 @@ export default function DirectoryPage() {
 
   useEffect(() => {
     if (user && profile?.status === 'active') {
-      supabase.from('users').select('*').eq('status', 'active').order('full_name').then(({ data }) => {
+      supabase.from('church_users').select('*').eq('status', 'active').order('full_name').then(({ data }) => {
         setMembers(data ?? []);
         setLoading(false);
       });

@@ -40,14 +40,14 @@ export default function AdminDashboard() {
         { data: users },
         { data: donations },
       ] = await Promise.all([
-        supabase.from('users').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-        supabase.from('users').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('church_users').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+        supabase.from('church_users').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('sermons').select('*', { count: 'exact', head: true }).eq('is_published', true),
         supabase.from('events').select('*', { count: 'exact', head: true }).gte('start_date', new Date().toISOString()),
         supabase.from('prayer_requests').select('*', { count: 'exact', head: true }).eq('status', 'open'),
         supabase.from('donations').select('amount').eq('status', 'completed'),
-        supabase.from('users').select('*').order('created_at', { ascending: false }).limit(5),
-        supabase.from('donations').select('*, users(full_name), giving_funds(name)').eq('status', 'completed').order('created_at', { ascending: false }).limit(6),
+        supabase.from('church_users').select('*').order('created_at', { ascending: false }).limit(5),
+        supabase.from('donations').select('*, church_users(full_name), giving_funds(name)').eq('status', 'completed').order('created_at', { ascending: false }).limit(6),
       ]);
 
       const totalDonations = (allDonations ?? []).reduce((s: number, d: any) => s + Number(d.amount), 0);

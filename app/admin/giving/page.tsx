@@ -18,7 +18,7 @@ export default function AdminGivingPage() {
   useEffect(() => {
     async function load() {
       const [{ data: d }, { data: f }] = await Promise.all([
-        supabase.from('donations').select('*, users(full_name, email), giving_funds(name)').eq('status', 'completed').order('created_at', { ascending: false }),
+        supabase.from('donations').select('*, church_users(full_name, email), giving_funds(name)').eq('status', 'completed').order('created_at', { ascending: false }),
         supabase.from('giving_funds').select('*'),
       ]);
       setDonations(d ?? []);

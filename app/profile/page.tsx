@@ -41,7 +41,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!loading && user && !profile) {
       supabase
-        .from('users')
+        .from('church_users')
         .insert({ id: user.id, email: user.email ?? '', full_name: user.user_metadata?.full_name ?? '', role: 'pending', status: 'pending' })
         .then(() => refreshProfile());
     }
@@ -49,7 +49,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (profile) {
-      setForm({ full_name: profile.full_name, phone: profile.phone, bio: profile.bio, address: profile.address });
+      setForm({ full_name: profile.full_name ?? '', phone: profile.phone ?? '', bio: profile.bio ?? '', address: profile.address ?? '' });
       loadData();
     }
   }, [profile]);
@@ -68,7 +68,7 @@ export default function ProfilePage() {
     e.preventDefault();
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase.from('users').update({ ...form, updated_at: new Date().toISOString() }).eq('id', user.id);
+    const { error } = await supabase.from('church_users').update({ ...form, updated_at: new Date().toISOString() }).eq('id', user.id);
     if (error) {
       toast({ title: 'Error saving profile', description: error.message, variant: 'destructive' });
     } else {
@@ -89,7 +89,7 @@ export default function ProfilePage() {
       toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
     } else {
       const { data } = supabase.storage.from('church-media').getPublicUrl(path);
-      await supabase.from('users').update({ avatar_url: data.publicUrl }).eq('id', user.id);
+      await supabase.from('church_users').update({ avatar_url: data.publicUrl }).eq('id', user.id);
       await refreshProfile();
       toast({ title: 'Photo updated!' });
     }

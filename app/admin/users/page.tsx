@@ -34,7 +34,7 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState('all');
 
   async function load() {
-    let query = supabase.from('users').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('church_users').select('*').order('created_at', { ascending: false });
     const { data } = await query;
     setUsers(data ?? []);
     setLoading(false);
@@ -44,7 +44,7 @@ export default function AdminUsersPage() {
 
   async function updateUser(id: string, updates: Partial<UserProfile>) {
     setUpdating(id);
-    const { error } = await supabase.from('users').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
+    const { error } = await supabase.from('church_users').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
