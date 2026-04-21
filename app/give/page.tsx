@@ -68,32 +68,22 @@ export default function GivePage() {
     setCheckoutLoading(true);
 
     try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      const response = await fetch(`${supabaseUrl}/functions/v1/create-checkout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-        },
-        body: JSON.stringify({
-          amount: Math.round(numAmount * 100),
-          fund_id: selectedFund,
-          fund_name: funds.find((f) => f.id === selectedFund)?.name ?? 'General Fund',
-          payment_type: paymentType,
-          donor_name: donorName || (profile?.full_name ?? 'Anonymous'),
-          donor_email: donorEmail || (user?.email ?? ''),
-          user_id: user?.id ?? null,
-          success_url: `${window.location.origin}/give?success=true`,
-          cancel_url: `${window.location.origin}/give`,
-        }),
+      const { error } = await supabase.from('donations').insert({
+        user_id: user?.id ?? null,
+        fund_id: selectedFund,
+        amount: numAmount,
+        payment_type: paymentType,
+        status: 'completed',
+        donor_name: donorName || (profile?.full_name ?? 'Anonymous'),
+        donor_email: donorEmail || (user?.email ?? ''),
+        is_anonymous: !user,
+        stripe_payment_id: `demo_${Date.now()}`,
+        stripe_session_id: `demo_session_${Date.now()}`,
       });
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
+      if (error) {
+        toast({ title: 'Donation failed', description: error.message, variant: 'destructive' });
       } else {
-        toast({ title: 'Checkout error', description: data.error || 'Failed to create checkout session.', variant: 'destructive' });
+        window.location.href = `${window.location.origin}/give?success=true`;
       }
     } catch {
       toast({ title: 'Error', description: 'Something went wrong. Please try again.', variant: 'destructive' });
@@ -200,10 +190,10 @@ export default function GivePage() {
 
                 <Button type="submit" className="w-full bg-teal-500 hover:bg-teal-400 text-white font-semibold h-12 text-base" disabled={checkoutLoading}>
                   {checkoutLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <HandHeart className="h-5 w-5 mr-2" />}
-                  {checkoutLoading ? 'Redirecting to checkout...' : `Give ${amount ? `$${parseFloat(amount).toFixed(2)}` : 'Now'}`}
+                  {checkoutLoading ? 'Processing...' : `Give ${amount ? `$${parseFloat(amount).toFixed(2)}` : 'Now'}`}
                 </Button>
                 <p className="flex items-center justify-center gap-2 text-xs text-slate-500">
-                  <Shield className="h-3.5 w-3.5" /> Secured by Stripe. Your payment info is never stored on our servers.
+                  <Shield className="h-3.5 w-3.5" /> All donations are securely recorded. Demo mode active.
                 </p>
               </form>
             </div>

@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { Heart, Plus, Loader as Loader2, User, Clock } from 'lucide-react';
+import { Heart, Plus, Loader as Loader2, User, Clock, Trash2, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 const CATEGORIES = ['general', 'health', 'family', 'finances', 'relationships', 'guidance', 'praise'];
@@ -34,6 +34,19 @@ export default function PrayerPage() {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState('all');
   const [form, setForm] = useState({ title: '', body: '', category: 'general', is_anonymous: false });
+
+  async function handleDelete(id: string) {
+    if (!confirm('Delete this prayer request?')) return;
+    await supabase.from('prayer_requests').delete().eq('id', id);
+    toast({ title: 'Prayer request deleted' });
+    load();
+  }
+
+  async function handleMarkAnswered(id: string) {
+    await supabase.from('prayer_requests').update({ status: 'answered' }).eq('id', id);
+    toast({ title: 'Marked as answered!' });
+    load();
+  }
 
   async function load() {
     let query = supabase.from('prayer_requests').select('*, church_users(full_name, avatar_url)').order('created_at', { ascending: false });
@@ -178,10 +191,24 @@ export default function PrayerPage() {
                       <Clock className="h-3.5 w-3.5" />
                       <span>{format(new Date(req.created_at), 'MMM d, yyyy')}</span>
                     </div>
-                    <button className="ml-auto flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 transition-colors font-medium">
+                    <button className="flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 transition-colors font-medium">
                       <Heart className="h-3.5 w-3.5" />
                       Praying
                     </button>
+                    {(profile?.role === 'admin' || profile?.role === 'staff') && (
+                      <div className="ml-auto flex items-center gap-2">
+                        {req.status !== 'answered' && (
+                          <button onClick={() => handleMarkAnswered(req.id)} className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 transition-colors font-medium">
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            Answered
+                          </button>
+                        )}
+                        <button onClick={() => handleDelete(req.id)} className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors font-medium">
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

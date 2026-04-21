@@ -22,12 +22,21 @@ export default function LoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       toast({ title: 'Sign in failed', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Welcome back!', description: 'You have been signed in.' });
-      router.push('/');
+      if (data.user) {
+        const { data: profile } = await supabase.from('church_users').select('role').eq('id', data.user.id).maybeSingle();
+        if (profile?.role === 'admin' || profile?.role === 'staff') {
+          router.push('/admin');
+        } else {
+          router.push('/');
+        }
+      } else {
+        router.push('/');
+      }
       router.refresh();
     }
     setLoading(false);

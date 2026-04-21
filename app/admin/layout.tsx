@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { LayoutDashboard, Users, DollarSign, BookOpen, Calendar, Megaphone, Loader as Loader2 } from 'lucide-react';
+import { LayoutDashboard, Users, DollarSign, BookOpen, Calendar, Megaphone, UsersRound, ClipboardList, Loader as Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV = [
@@ -14,6 +14,8 @@ const NAV = [
   { href: '/admin/giving', label: 'Giving', icon: DollarSign },
   { href: '/admin/sermons', label: 'Sermons', icon: BookOpen },
   { href: '/admin/events', label: 'Events', icon: Calendar },
+  { href: '/admin/groups', label: 'Groups', icon: UsersRound },
+  { href: '/admin/attendance', label: 'Attendance', icon: ClipboardList },
   { href: '/admin/announcements', label: 'Announcements', icon: Megaphone },
 ];
 
