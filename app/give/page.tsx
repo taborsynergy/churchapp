@@ -81,12 +81,11 @@ export default function GivePage() {
         user_id: user?.id ?? null,
         fund_id: selectedFund,
         amount: numAmount,
-        payment_type: paymentType,
+        frequency: paymentType === 'recurring' ? 'recurring' : 'one_time',
         status: 'completed',
         donor_name: donorName || (profile?.full_name ?? 'Anonymous'),
         donor_email: donorEmail || (user?.email ?? ''),
-        is_anonymous: !user,
-        stripe_payment_id: `demo_${Date.now()}`,
+        stripe_payment_intent_id: `demo_${Date.now()}`,
         stripe_session_id: `demo_session_${Date.now()}`,
       });
       if (error) {

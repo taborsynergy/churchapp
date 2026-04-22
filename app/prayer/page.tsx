@@ -49,7 +49,7 @@ export default function PrayerPage() {
   }
 
   async function load() {
-    let query = supabase.from('prayer_requests').select('*, church_users(full_name, avatar_url)').order('created_at', { ascending: false });
+    let query = supabase.from('prayer_requests').select('*').order('created_at', { ascending: false });
     if (filter !== 'all') query = query.eq('status', filter);
     const { data } = await query;
     setRequests(data ?? []);

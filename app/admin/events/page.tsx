@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Pencil, Loader as Loader2, Calendar, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { adminWrite } from '@/lib/admin-write';
 
 const BLANK = { title: '', description: '', location: '', start_date: '', end_date: '', image_url: '', capacity: '', category: 'general', is_published: true };
 
@@ -53,8 +54,8 @@ export default function AdminEventsPage() {
       return;
     }
     setSaving(true);
-    const payload = { ...form, capacity: form.capacity ? parseInt(form.capacity) : null, end_date: form.end_date || null, created_by: user?.id ?? null };
-    const { error } = editing ? await supabase.from('events').update(payload).eq('id', editing.id) : await supabase.from('events').insert(payload);
+    const payload: Record<string, unknown> = { ...form, capacity: form.capacity ? parseInt(form.capacity) : null, end_date: form.end_date || null, created_by: user?.id ?? null, event_date: form.start_date || null };
+    const { error } = editing ? await adminWrite('events', 'update', payload, editing.id) : await adminWrite('events', 'insert', payload);
     if (error) { toast({ title: 'Error', description: 'Unable to save event. Please try again.', variant: 'destructive' }); }
     else { toast({ title: editing ? 'Event updated' : 'Event created' }); setOpen(false); load(); }
     setSaving(false);
@@ -70,7 +71,7 @@ export default function AdminEventsPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this event?')) return;
-    await supabase.from('events').delete().eq('id', id);
+    await adminWrite('events', 'delete', undefined, id);
     toast({ title: 'Event deleted' });
     load();
   }

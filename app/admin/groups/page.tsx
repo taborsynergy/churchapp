@@ -17,7 +17,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Pencil, Loader as Loader2, Users, UserPlus, X } from 'lucide-react';
 
 const CATEGORIES = ['general', 'bible_study', 'youth', 'women', 'men', 'couples', 'seniors', 'outreach'];
-const BLANK = { name: '', description: '', meeting_time: '', location: '', category: 'general', max_members: '', is_open: true, is_published: true, leader_id: '' };
+// is_published maps to DB column "published"; leader_id is UI-only (stored as leader_name text in DB)
+const BLANK = { name: '', description: '', meeting_time: '', location: '', category: 'general', max_members: '', is_published: true, leader_id: 'none' };
 
 export default function AdminGroupsPage() {
   const { profile: currentProfile } = useAuth();
@@ -39,7 +40,7 @@ export default function AdminGroupsPage() {
 
   async function load() {
     const [{ data: g }, { data: m }] = await Promise.all([
-      supabase.from('groups').select('*, church_users(full_name)').order('created_at', { ascending: false }),
+      supabase.from('groups').select('*').order('created_at', { ascending: false }),
       supabase.from('church_users').select('id, full_name, email, avatar_url').eq('status', 'active').order('full_name'),
     ]);
     setGroups((g as any) ?? []);
@@ -50,12 +51,12 @@ export default function AdminGroupsPage() {
   useEffect(() => { load(); }, []);
 
   function openNew() { setEditing(null); setForm({ ...BLANK }); setOpen(true); }
-  function openEdit(g: Group) {
+  function openEdit(g: any) {
     setEditing(g);
     setForm({
       name: g.name, description: g.description ?? '', meeting_time: g.meeting_time ?? '',
-      location: g.location ?? '', category: g.category, max_members: g.max_members?.toString() ?? '',
-      is_open: g.is_open, is_published: g.is_published, leader_id: g.leader_id ?? '',
+      location: g.location ?? '', category: g.category ?? 'general', max_members: g.max_members?.toString() ?? '',
+      is_published: g.published ?? true, leader_id: 'none',
     });
     setOpen(true);
   }
@@ -63,14 +64,19 @@ export default function AdminGroupsPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    const leaderMember = form.leader_id !== 'none' ? members.find((m) => m.id === form.leader_id) : null;
     const payload = {
-      ...form,
+      name: form.name,
+      description: form.description,
+      category: form.category,
+      meeting_time: form.meeting_time,
+      location: form.location,
       max_members: form.max_members ? parseInt(form.max_members) : null,
-      leader_id: form.leader_id || null,
-      image_url: '',
+      published: form.is_published,
+      leader_name: leaderMember?.full_name ?? null,
     };
     const { error } = editing
-      ? await supabase.from('groups').update(payload).eq('id', editing.id)
+      ? await supabase.from('groups').update(payload).eq('id', (editing as any).id)
       : await supabase.from('groups').insert(payload);
     if (error) { toast({ title: 'Error', description: 'Unable to save group. Please try again.', variant: 'destructive' }); }
     else { toast({ title: editing ? 'Group updated' : 'Group created' }); setOpen(false); load(); }
@@ -234,7 +240,7 @@ export default function AdminGroupsPage() {
                   <Select value={form.leader_id} onValueChange={(v) => setForm({ ...form, leader_id: v })}>
                     <SelectTrigger className="bg-slate-800 border-slate-700 text-white mt-1"><SelectValue placeholder="Select leader" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No leader</SelectItem>
+                      <SelectItem value="none">No leader</SelectItem>
                       {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -254,15 +260,9 @@ export default function AdminGroupsPage() {
                 <Label className="text-slate-300">Location</Label>
                 <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Room 201 / Online" className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Switch checked={form.is_open} onCheckedChange={(v) => setForm({ ...form, is_open: v })} />
-                  <Label className="text-slate-300">Open to Join</Label>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Switch checked={form.is_published} onCheckedChange={(v) => setForm({ ...form, is_published: v })} />
-                  <Label className="text-slate-300">Published</Label>
-                </div>
+              <div className="flex items-center gap-3">
+                <Switch checked={form.is_published} onCheckedChange={(v) => setForm({ ...form, is_published: v })} />
+                <Label className="text-slate-300">Published</Label>
               </div>
               <Button type="submit" className="w-full bg-teal-500 hover:bg-teal-400 text-white font-semibold" disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -305,12 +305,11 @@ export default function AdminGroupsPage() {
                     </Badge>
                   </td>
                   <td className="px-4 py-3.5 hidden md:table-cell text-slate-400 text-xs">
-                    {(g as any).church_users?.full_name ?? '—'}
+                    {(g as any).leader_name ?? '—'}
                   </td>
                   <td className="px-4 py-3.5">
                     <div className="flex gap-1.5">
-                      {g.is_published ? <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs">Published</Badge> : <Badge className="bg-slate-700/50 text-slate-400 text-xs">Draft</Badge>}
-                      {g.is_open && <Badge className="bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs">Open</Badge>}
+                      {(g as any).published ? <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs">Published</Badge> : <Badge className="bg-slate-700/50 text-slate-400 text-xs">Draft</Badge>}
                     </div>
                   </td>
                   <td className="px-5 py-3.5">

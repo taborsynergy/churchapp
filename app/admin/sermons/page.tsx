@@ -15,8 +15,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Pencil, Loader as Loader2, BookOpen, ListVideo } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { adminWrite } from '@/lib/admin-write';
 
-const BLANK = { title: '', description: '', pastor: '', series_id: '', video_url: '', audio_url: '', thumbnail_url: '', scripture_reference: '', duration_minutes: 0, is_published: false };
+const BLANK = { title: '', description: '', pastor: '', series_id: 'none', video_url: '', audio_url: '', thumbnail_url: '', scripture_reference: '', duration_minutes: 0, is_published: false };
 const SERIES_BLANK = { title: '', description: '', image_url: '', is_active: true };
 
 export default function AdminSermonsPage() {
@@ -48,15 +49,15 @@ export default function AdminSermonsPage() {
   function openNew() { setEditing(null); setForm({ ...BLANK }); setOpen(true); }
   function openEdit(s: Sermon) {
     setEditing(s);
-    setForm({ title: s.title, description: s.description, pastor: s.pastor, series_id: s.series_id ?? '', video_url: s.video_url, audio_url: s.audio_url, thumbnail_url: s.thumbnail_url, scripture_reference: s.scripture_reference, duration_minutes: s.duration_minutes, is_published: s.is_published });
+    setForm({ title: s.title, description: s.description, pastor: s.pastor, series_id: s.series_id ?? 'none', video_url: s.video_url, audio_url: s.audio_url, thumbnail_url: s.thumbnail_url, scripture_reference: s.scripture_reference, duration_minutes: s.duration_minutes, is_published: s.is_published });
     setOpen(true);
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const payload = { ...form, series_id: form.series_id || null, published_at: form.is_published ? new Date().toISOString() : null };
-    const { error } = editing ? await supabase.from('sermons').update(payload).eq('id', editing.id) : await supabase.from('sermons').insert(payload);
+    const payload: Record<string, unknown> = { ...form, series_id: form.series_id && form.series_id !== 'none' ? form.series_id : null, published_at: form.is_published ? new Date().toISOString() : null };
+    const { error } = editing ? await adminWrite('sermons', 'update', payload, editing.id) : await adminWrite('sermons', 'insert', payload);
     if (error) { toast({ title: 'Error', description: 'Unable to save sermon. Please try again.', variant: 'destructive' }); }
     else { toast({ title: editing ? 'Sermon updated' : 'Sermon created' }); setOpen(false); load(); }
     setSaving(false);
@@ -72,7 +73,7 @@ export default function AdminSermonsPage() {
   async function handleSeriesSave(e: React.FormEvent) {
     e.preventDefault();
     setSeriesSaving(true);
-    const { error } = await supabase.from('sermon_series').insert(seriesForm);
+    const { error } = await adminWrite('sermon_series', 'insert', seriesForm as Record<string, unknown>);
     if (error) { toast({ title: 'Error', description: 'Unable to create series. Please try again.', variant: 'destructive' }); }
     else { toast({ title: 'Series created!' }); setSeriesForm({ ...SERIES_BLANK }); setSeriesOpen(false); load(); }
     setSeriesSaving(false);
@@ -143,7 +144,7 @@ export default function AdminSermonsPage() {
                   <div><Label className="text-slate-200">Series</Label>
                     <Select value={form.series_id} onValueChange={(v) => setForm({ ...form, series_id: v })}>
                       <SelectTrigger className="bg-slate-800 border-slate-700 text-white"><SelectValue placeholder="None" /></SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700"><SelectItem value="" className="text-white">None</SelectItem>{series.map((s) => <SelectItem key={s.id} value={s.id} className="text-white">{s.title}</SelectItem>)}</SelectContent>
+                      <SelectContent className="bg-slate-800 border-slate-700"><SelectItem value="none" className="text-white">None</SelectItem>{series.map((s) => <SelectItem key={s.id} value={s.id} className="text-white">{s.title}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>

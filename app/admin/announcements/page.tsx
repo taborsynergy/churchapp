@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { adminWrite } from '@/lib/admin-write';
 import { Plus, Trash2, Pencil, Loader as Loader2, Megaphone } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -53,8 +54,8 @@ export default function AdminAnnouncementsPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const payload = { ...form, expires_at: form.expires_at || null, created_by: user?.id ?? null, published_at: new Date().toISOString() };
-    const { error } = editing ? await supabase.from('announcements').update(payload).eq('id', editing.id) : await supabase.from('announcements').insert(payload);
+    const payload: Record<string, unknown> = { ...form, expires_at: form.expires_at || null, created_by: user?.id ?? null, published_at: new Date().toISOString() };
+    const { error } = editing ? await adminWrite('announcements', 'update', payload, editing.id) : await adminWrite('announcements', 'insert', payload);
     if (error) { toast({ title: 'Error', description: 'Unable to save announcement. Please try again.', variant: 'destructive' }); }
     else { toast({ title: editing ? 'Announcement updated' : 'Announcement created' }); setOpen(false); load(); }
     setSaving(false);
@@ -62,7 +63,7 @@ export default function AdminAnnouncementsPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this announcement?')) return;
-    await supabase.from('announcements').delete().eq('id', id);
+    await adminWrite('announcements', 'delete', undefined, id);
     toast({ title: 'Announcement deleted' });
     load();
   }
