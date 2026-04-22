@@ -79,7 +79,7 @@ export default function AdminAttendancePage() {
 
     const { error } = await supabase.from('attendance').upsert(upserts, { onConflict: 'event_id,user_id' });
     if (error) {
-      toast({ title: 'Error saving attendance', description: error.message, variant: 'destructive' });
+      toast({ title: 'Error saving attendance', description: 'Unable to save attendance. Please try again.', variant: 'destructive' });
     } else {
       toast({ title: 'Attendance saved!' });
       const { data } = await supabase.from('attendance').select('*').eq('event_id', selectedEvent);

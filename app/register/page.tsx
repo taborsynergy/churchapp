@@ -37,7 +37,8 @@ export default function RegisterPage() {
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-      toast({ title: 'Registration failed', description: error.message, variant: 'destructive' });
+      const msg = error.message.toLowerCase().includes('already registered') ? 'An account with this email already exists.' : 'Registration failed. Please try again.';
+      toast({ title: 'Registration failed', description: msg, variant: 'destructive' });
       setLoading(false);
       return;
     }
@@ -52,7 +53,7 @@ export default function RegisterPage() {
       });
 
       if (profileError) {
-        toast({ title: 'Profile creation failed', description: profileError.message, variant: 'destructive' });
+        toast({ title: 'Profile creation failed', description: 'Account created but profile setup failed. Please contact support.', variant: 'destructive' });
       } else {
         setSuccess(true);
       }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import type { GivingFund } from '@/lib/types';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -16,8 +17,15 @@ import { HandHeart, DollarSign, Shield, Heart, RefreshCw, Loader as Loader2 } fr
 const PRESET_AMOUNTS = [25, 50, 100, 250, 500];
 
 export default function GivePage() {
-  const { user, profile } = useAuth();
+  const router = useRouter();
+  const { user, profile, loading: authLoading } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/login');
+    }
+  }, [user, authLoading]);
   const [funds, setFunds] = useState<GivingFund[]>([]);
   const [fundTotals, setFundTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -27,6 +35,7 @@ export default function GivePage() {
   const [paymentType, setPaymentType] = useState<'one_time' | 'recurring'>('one_time');
   const [donorName, setDonorName] = useState('');
   const [donorEmail, setDonorEmail] = useState('');
+  const [donated, setDonated] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -81,9 +90,10 @@ export default function GivePage() {
         stripe_session_id: `demo_session_${Date.now()}`,
       });
       if (error) {
-        toast({ title: 'Donation failed', description: error.message, variant: 'destructive' });
+        toast({ title: 'Donation failed', description: 'Unable to record donation. Please try again.', variant: 'destructive' });
       } else {
-        window.location.href = `${window.location.origin}/give?success=true`;
+        setDonated(true);
+        setAmount('');
       }
     } catch {
       toast({ title: 'Error', description: 'Something went wrong. Please try again.', variant: 'destructive' });
@@ -91,10 +101,14 @@ export default function GivePage() {
     setCheckoutLoading(false);
   }
 
-  const successParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('success') : null;
-
   return (
     <div className="min-h-screen bg-slate-950">
+      <div className="bg-amber-500/10 border-b border-amber-500/20 py-2 px-4">
+        <p className="text-center text-amber-400 text-sm font-semibold">
+          DEMO MODE — No real payments are processed. All donations are simulated for demonstration purposes only.
+        </p>
+      </div>
+
       <div className="bg-gradient-to-br from-slate-900 to-slate-900 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Badge className="bg-green-500/10 text-green-400 border border-green-500/20 mb-3">Generosity</Badge>
@@ -104,7 +118,7 @@ export default function GivePage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {successParam && (
+        {donated && (
           <div className="mb-8 p-5 bg-green-500/10 border border-green-500/20 rounded-xl text-center">
             <Heart className="h-10 w-10 text-green-400 mx-auto mb-2" />
             <h3 className="font-bold text-green-400 text-lg">Thank You for Your Gift!</h3>

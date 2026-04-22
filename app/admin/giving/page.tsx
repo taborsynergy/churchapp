@@ -6,27 +6,70 @@ import type { Donation, GivingFund } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DollarSign, TrendingUp, Users, RefreshCw, Loader as Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
+import { DollarSign, TrendingUp, Users, RefreshCw, Loader as Loader2, Plus, Trash2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { useAuth } from '@/components/providers/AuthProvider';
+import { useRouter } from 'next/navigation';
+
+const FUND_BLANK = { name: '', description: '', goal_amount: '', is_active: true };
 
 export default function AdminGivingPage() {
+  const router = useRouter();
+  const { profile, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!authLoading && profile && profile.role !== 'admin') {
+      router.replace('/admin');
+    }
+  }, [profile, authLoading]);
   const [donations, setDonations] = useState<Donation[]>([]);
   const [funds, setFunds] = useState<GivingFund[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('this_month');
+  const [fundOpen, setFundOpen] = useState(false);
+  const [fundSaving, setFundSaving] = useState(false);
+  const [fundForm, setFundForm] = useState<typeof FUND_BLANK>({ ...FUND_BLANK });
 
-  useEffect(() => {
-    async function load() {
-      const [{ data: d }, { data: f }] = await Promise.all([
-        supabase.from('donations').select('*, church_users(full_name, email), giving_funds(name)').eq('status', 'completed').order('created_at', { ascending: false }),
-        supabase.from('giving_funds').select('*'),
-      ]);
-      setDonations(d ?? []);
-      setFunds(f ?? []);
-      setLoading(false);
-    }
+  async function load() {
+    const [{ data: d }, { data: f }] = await Promise.all([
+      supabase.from('donations').select('*, church_users(full_name, email), giving_funds(name)').eq('status', 'completed').order('created_at', { ascending: false }),
+      supabase.from('giving_funds').select('*').order('created_at', { ascending: false }),
+    ]);
+    setDonations(d ?? []);
+    setFunds(f ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function handleFundSave(e: React.FormEvent) {
+    e.preventDefault();
+    setFundSaving(true);
+    const { error } = await supabase.from('giving_funds').insert({
+      name: fundForm.name,
+      description: fundForm.description,
+      goal_amount: fundForm.goal_amount ? parseFloat(fundForm.goal_amount) : null,
+      is_active: fundForm.is_active,
+    });
+    if (error) { toast({ title: 'Error', description: 'Unable to create fund. Please try again.', variant: 'destructive' }); }
+    else { toast({ title: 'Fund created!' }); setFundForm({ ...FUND_BLANK }); setFundOpen(false); load(); }
+    setFundSaving(false);
+  }
+
+  async function handleFundDelete(id: string) {
+    if (!confirm('Delete this fund?')) return;
+    await supabase.from('giving_funds').delete().eq('id', id);
+    toast({ title: 'Fund deleted' });
     load();
-  }, []);
+  }
 
   const now = new Date();
   const filtered = donations.filter((d) => {
@@ -68,12 +111,46 @@ export default function AdminGivingPage() {
           <h1 className="text-2xl font-bold text-white">Giving Reports</h1>
           <p className="text-slate-400 text-sm mt-1">Track donations across all funds and giving campaigns.</p>
         </div>
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-44 bg-slate-800 border-slate-700 text-white"><SelectValue /></SelectTrigger>
-          <SelectContent className="bg-slate-800 border-slate-700">
-            {PERIOD_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value} className="text-white">{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2 items-center">
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-44 bg-slate-800 border-slate-700 text-white"><SelectValue /></SelectTrigger>
+            <SelectContent className="bg-slate-800 border-slate-700">
+              {PERIOD_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value} className="text-white">{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Dialog open={fundOpen} onOpenChange={setFundOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-teal-500 hover:bg-teal-400 text-white font-semibold">
+                <Plus className="h-4 w-4 mr-2" />New Fund
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md bg-slate-900 border-slate-700/50">
+              <DialogHeader><DialogTitle className="text-white">Create Giving Fund</DialogTitle></DialogHeader>
+              <form onSubmit={handleFundSave} className="space-y-4 mt-2">
+                <div>
+                  <Label className="text-slate-300">Fund Name *</Label>
+                  <Input value={fundForm.name} onChange={(e) => setFundForm({ ...fundForm, name: e.target.value })} placeholder="e.g. Building Fund" required className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
+                </div>
+                <div>
+                  <Label className="text-slate-300">Description</Label>
+                  <Textarea value={fundForm.description} onChange={(e) => setFundForm({ ...fundForm, description: e.target.value })} rows={3} placeholder="What is this fund for?" className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
+                </div>
+                <div>
+                  <Label className="text-slate-300">Goal Amount (optional)</Label>
+                  <Input type="number" min="1" max="10000000" step="0.01" value={fundForm.goal_amount} onChange={(e) => setFundForm({ ...fundForm, goal_amount: e.target.value })} placeholder="e.g. 50000" className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Switch checked={fundForm.is_active} onCheckedChange={(v) => setFundForm({ ...fundForm, is_active: v })} />
+                  <Label className="text-slate-300 font-normal">Active Fund</Label>
+                </div>
+                <Button type="submit" className="w-full bg-teal-500 hover:bg-teal-400 text-white font-semibold" disabled={fundSaving}>
+                  {fundSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Create Fund
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -110,7 +187,14 @@ export default function AdminGivingPage() {
                 {byFund.map(({ fund, total, count }) => (
                   <div key={fund.id}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-slate-200">{fund.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-200">{fund.name}</span>
+                        {profile?.role === 'admin' && (
+                          <button onClick={() => handleFundDelete(fund.id)} className="text-red-400 hover:text-red-300 opacity-60 hover:opacity-100 transition-opacity">
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-slate-500">{count} gifts</span>
                         <span className="text-sm font-bold text-white">${total.toLocaleString()}</span>

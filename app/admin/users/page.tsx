@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/providers/AuthProvider';
 import type { UserProfile, UserRole, UserStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,11 +13,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Search, UserCheck, UserX, Users, Loader as Loader2, UserPlus } from 'lucide-react';
+import { Search, UserCheck, UserX, Users, Loader as Loader2, UserPlus, Ban } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function AdminUsersPage() {
+  const router = useRouter();
+  const { profile: currentProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!authLoading && currentProfile && currentProfile.role !== 'admin') {
+      router.replace('/admin');
+    }
+  }, [currentProfile, authLoading]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -50,6 +60,11 @@ export default function AdminUsersPage() {
     await updateUser(id, { role: 'member', status: 'active' });
   }
 
+  async function rejectUser(id: string) {
+    if (!confirm('Reject this registration? The account will be suspended.')) return;
+    await updateUser(id, { status: 'suspended' });
+  }
+
   async function handleAddMember(e: React.FormEvent) {
     e.preventDefault();
     if (!addForm.full_name.trim() || !addForm.email.trim() || !addForm.password.trim()) {
@@ -57,9 +72,13 @@ export default function AdminUsersPage() {
       return;
     }
     setAdding(true);
+    const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch('/api/admin/create-user', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token ?? ''}`,
+      },
       body: JSON.stringify(addForm),
     });
     const data = await res.json();
@@ -232,10 +251,15 @@ export default function AdminUsersPage() {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-2">
                           {u.status === 'pending' && (
-                            <Button size="sm" className="h-7 text-xs bg-teal-500 hover:bg-teal-400 text-white font-semibold" onClick={() => approveUser(u.id)} disabled={updating === u.id}>
-                              {updating === u.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserCheck className="h-3.5 w-3.5 mr-1" />}
-                              Approve
-                            </Button>
+                            <>
+                              <Button size="sm" className="h-7 text-xs bg-teal-500 hover:bg-teal-400 text-white font-semibold" onClick={() => approveUser(u.id)} disabled={updating === u.id}>
+                                {updating === u.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserCheck className="h-3.5 w-3.5 mr-1" />}
+                                Approve
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20" onClick={() => rejectUser(u.id)} disabled={updating === u.id}>
+                                <Ban className="h-3.5 w-3.5 mr-1" />Reject
+                              </Button>
+                            </>
                           )}
                           {u.status === 'active' && (
                             <Button size="sm" variant="outline" className="h-7 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20" onClick={() => updateUser(u.id, { status: 'suspended' })} disabled={updating === u.id}>

@@ -12,14 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Pencil, Loader as Loader2, Calendar } from 'lucide-react';
+import { Plus, Trash2, Pencil, Loader as Loader2, Calendar, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/components/providers/AuthProvider';
 
 const BLANK = { title: '', description: '', location: '', start_date: '', end_date: '', image_url: '', capacity: '', category: 'general', is_published: true };
 
 export default function AdminEventsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +27,9 @@ export default function AdminEventsPage() {
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Event | null>(null);
   const [form, setForm] = useState<typeof BLANK>({ ...BLANK });
+  const [rsvpEvent, setRsvpEvent] = useState<Event | null>(null);
+  const [rsvps, setRsvps] = useState<any[]>([]);
+  const [rsvpLoading, setRsvpLoading] = useState(false);
 
   async function load() {
     const { data } = await supabase.from('events').select('*').order('start_date', { ascending: false });
@@ -45,12 +48,24 @@ export default function AdminEventsPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (!editing && form.start_date && new Date(form.start_date) < new Date()) {
+      toast({ title: 'Invalid date', description: 'Event date cannot be in the past.', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     const payload = { ...form, capacity: form.capacity ? parseInt(form.capacity) : null, end_date: form.end_date || null, created_by: user?.id ?? null };
     const { error } = editing ? await supabase.from('events').update(payload).eq('id', editing.id) : await supabase.from('events').insert(payload);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); }
+    if (error) { toast({ title: 'Error', description: 'Unable to save event. Please try again.', variant: 'destructive' }); }
     else { toast({ title: editing ? 'Event updated' : 'Event created' }); setOpen(false); load(); }
     setSaving(false);
+  }
+
+  async function openRsvps(ev: Event) {
+    setRsvpEvent(ev);
+    setRsvpLoading(true);
+    const { data } = await supabase.from('event_rsvps').select('*, church_users(full_name, email)').eq('event_id', ev.id).order('created_at');
+    setRsvps(data ?? []);
+    setRsvpLoading(false);
   }
 
   async function handleDelete(id: string) {
@@ -62,6 +77,31 @@ export default function AdminEventsPage() {
 
   return (
     <div className="p-6 lg:p-8">
+      {/* RSVP Dialog */}
+      <Dialog open={!!rsvpEvent} onOpenChange={(o) => { if (!o) setRsvpEvent(null); }}>
+        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-700/50 max-h-[80vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="text-white">RSVPs — {rsvpEvent?.title}</DialogTitle></DialogHeader>
+          {rsvpLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-teal-400" /></div>
+          ) : rsvps.length === 0 ? (
+            <p className="text-slate-400 text-sm text-center py-6">No RSVPs yet for this event.</p>
+          ) : (
+            <div className="space-y-2 mt-2">
+              <p className="text-xs text-slate-500 mb-3">{rsvps.length} attendee{rsvps.length !== 1 ? 's' : ''}</p>
+              {rsvps.map((r) => (
+                <div key={r.id} className="flex items-center justify-between bg-slate-800 rounded-lg px-4 py-2.5">
+                  <div>
+                    <p className="text-sm font-medium text-white">{(r.church_users as any)?.full_name ?? 'Unknown'}</p>
+                    <p className="text-xs text-slate-500">{(r.church_users as any)?.email}</p>
+                  </div>
+                  <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs capitalize">{r.status}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Events</h1>
@@ -87,7 +127,7 @@ export default function AdminEventsPage() {
                     <SelectContent className="bg-slate-800 border-slate-700">{['general', 'worship', 'youth', 'outreach', 'fellowship', 'prayer'].map((c) => <SelectItem key={c} value={c} className="text-white capitalize">{c}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div><Label className="text-slate-200">Capacity</Label><Input type="number" min="0" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} placeholder="Unlimited" className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
+                <div><Label className="text-slate-200">Capacity</Label><Input type="number" min="1" max="10000" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} placeholder="Unlimited" className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
               </div>
               <div><Label className="text-slate-200">Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
               <div><Label className="text-slate-200">Image URL</Label><Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
@@ -126,8 +166,9 @@ export default function AdminEventsPage() {
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex items-center justify-end gap-2">
+                      <Button size="sm" variant="outline" className="h-7 text-xs bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 border border-teal-500/20" onClick={() => openRsvps(e)}><Users className="h-3.5 w-3.5 mr-1" />RSVPs</Button>
                       <Button size="sm" variant="outline" className="h-7 text-xs bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700 hover:text-white" onClick={() => openEdit(e)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20" onClick={() => handleDelete(e.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      {profile?.role === 'admin' && <Button size="sm" variant="outline" className="h-7 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20" onClick={() => handleDelete(e.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
                     </div>
                   </td>
                 </tr>

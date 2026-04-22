@@ -13,8 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import type { Donation, Group } from '@/lib/types';
-import { User, Mail, Phone, MapPin, Heart, Users, DollarSign, Loader as Loader2, Camera } from 'lucide-react';
+import type { Donation, Group, PrayerRequest, EventRsvp } from '@/lib/types';
+import { User, Mail, Phone, MapPin, Heart, Users, DollarSign, Loader as Loader2, Camera, ClipboardCheck, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ROLE_COLORS: Record<string, string> = {
@@ -32,6 +32,9 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [donations, setDonations] = useState<Donation[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
+  const [myRsvps, setMyRsvps] = useState<any[]>([]);
+  const [myPrayers, setMyPrayers] = useState<PrayerRequest[]>([]);
   const [form, setForm] = useState({ full_name: '', phone: '', bio: '', address: '' });
 
   useEffect(() => {
@@ -56,12 +59,18 @@ export default function ProfilePage() {
 
   async function loadData() {
     if (!user) return;
-    const [{ data: d }, { data: g }] = await Promise.all([
+    const [{ data: d }, { data: g }, { data: att }, { data: rsvpData }, { data: prayerData }] = await Promise.all([
       supabase.from('donations').select('*, giving_funds(name)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
       supabase.from('group_members').select('*, groups(name, category)').eq('user_id', user.id),
+      supabase.from('attendance').select('*, events(title, start_date)').eq('user_id', user.id).eq('present', true).order('marked_at', { ascending: false }).limit(10),
+      supabase.from('event_rsvps').select('*, events(title, start_date, location)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
+      supabase.from('prayer_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
     ]);
     setDonations(d ?? []);
     setGroups((g ?? []).map((m: any) => m.groups));
+    setAttendanceHistory(att ?? []);
+    setMyRsvps(rsvpData ?? []);
+    setMyPrayers(prayerData ?? []);
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -70,7 +79,7 @@ export default function ProfilePage() {
     setSaving(true);
     const { error } = await supabase.from('church_users').update({ ...form, updated_at: new Date().toISOString() }).eq('id', user.id);
     if (error) {
-      toast({ title: 'Error saving profile', description: error.message, variant: 'destructive' });
+      toast({ title: 'Error saving profile', description: 'Unable to save changes. Please try again.', variant: 'destructive' });
     } else {
       await refreshProfile();
       toast({ title: 'Profile updated!' });
@@ -86,7 +95,7 @@ export default function ProfilePage() {
     const path = `avatars/${user.id}.${ext}`;
     const { error: uploadError } = await supabase.storage.from('church-media').upload(path, file, { upsert: true });
     if (uploadError) {
-      toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
+      toast({ title: 'Upload failed', description: 'Unable to upload photo. Please try again.', variant: 'destructive' });
     } else {
       const { data } = supabase.storage.from('church-media').getPublicUrl(path);
       await supabase.from('church_users').update({ avatar_url: data.publicUrl }).eq('id', user.id);
@@ -101,7 +110,7 @@ export default function ProfilePage() {
   }
   if (!user || !profile) return null;
 
-  const initials = profile.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'GC';
+  const initials = (profile.full_name ?? '').split(' ').filter(Boolean).map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'GC';
   const totalGiven = donations.filter(d => d.status === 'completed').reduce((sum, d) => sum + Number(d.amount), 0);
 
   return (
@@ -219,6 +228,76 @@ export default function ProfilePage() {
                             {don.status}
                           </Badge>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {attendanceHistory.length > 0 && (
+              <Card className="border-slate-700/50 bg-slate-900">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-white"><ClipboardCheck className="h-5 w-5 text-teal-400" />Attendance History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {attendanceHistory.map((a: any) => (
+                      <div key={a.id} className="flex items-center justify-between py-2 border-b border-slate-800 last:border-0">
+                        <div>
+                          <p className="text-sm font-medium text-white">{a.events?.title ?? 'Unknown Event'}</p>
+                          <p className="text-xs text-slate-500">
+                            {a.events?.start_date ? format(new Date(a.events.start_date), 'MMM d, yyyy') : '—'}
+                          </p>
+                        </div>
+                        <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs">Present</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {myRsvps.length > 0 && (
+              <Card className="border-slate-700/50 bg-slate-900">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-white"><Calendar className="h-5 w-5 text-teal-400" />My Events (RSVPs)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {myRsvps.map((r: any) => (
+                      <div key={r.id} className="flex items-center justify-between py-2 border-b border-slate-800 last:border-0">
+                        <div>
+                          <p className="text-sm font-medium text-white">{r.events?.title ?? 'Unknown Event'}</p>
+                          <p className="text-xs text-slate-500">
+                            {r.events?.start_date ? format(new Date(r.events.start_date), 'MMM d, yyyy') : '—'}
+                            {r.events?.location ? ` · ${r.events.location}` : ''}
+                          </p>
+                        </div>
+                        <Badge className="bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs capitalize">{r.status}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {myPrayers.length > 0 && (
+              <Card className="border-slate-700/50 bg-slate-900">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-white"><Heart className="h-5 w-5 text-teal-400" />My Prayer Requests</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {myPrayers.map((p) => (
+                      <div key={p.id} className="py-2 border-b border-slate-800 last:border-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-medium text-white">{p.title}</p>
+                          <Badge className={p.status === 'answered' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs' : p.status === 'open' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs' : 'bg-slate-700/50 text-slate-400 text-xs'}>
+                            {p.status}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-slate-500">{format(new Date(p.created_at), 'MMM d, yyyy')}</p>
                       </div>
                     ))}
                   </div>

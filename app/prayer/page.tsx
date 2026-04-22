@@ -78,7 +78,7 @@ export default function PrayerPage() {
       status: 'open',
     });
     if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: 'Error', description: 'Unable to submit request. Please try again.', variant: 'destructive' });
     } else {
       toast({ title: 'Prayer request submitted', description: 'Our community will be praying with you.' });
       setForm({ title: '', body: '', category: 'general', is_anonymous: false });

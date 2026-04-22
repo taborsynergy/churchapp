@@ -20,15 +20,24 @@ export default function AnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+
   useEffect(() => {
     async function load() {
+      const now = new Date().toISOString();
       const { data } = await supabase
         .from('announcements')
         .select('*')
         .eq('is_published', true)
-        .order('priority')
+        .or(`expires_at.is.null,expires_at.gt.${now}`)
         .order('published_at', { ascending: false });
-      setAnnouncements(data ?? []);
+      const sorted = (data ?? []).sort((a: Announcement, b: Announcement) => {
+        const pa = PRIORITY_ORDER[a.priority] ?? 2;
+        const pb = PRIORITY_ORDER[b.priority] ?? 2;
+        if (pa !== pb) return pa - pb;
+        return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
+      });
+      setAnnouncements(sorted);
       setLoading(false);
     }
     load();

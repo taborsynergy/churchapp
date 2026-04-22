@@ -24,20 +24,25 @@ export default function LoginPage() {
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      toast({ title: 'Sign in failed', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Welcome back!', description: 'You have been signed in.' });
-      if (data.user) {
-        const { data: profile } = await supabase.from('church_users').select('role').eq('id', data.user.id).maybeSingle();
-        if (profile?.role === 'admin' || profile?.role === 'staff') {
-          router.push('/admin');
-        } else {
-          router.push('/');
-        }
-      } else {
+      toast({ title: 'Sign in failed', description: 'Invalid email or password. Please try again.', variant: 'destructive' });
+    } else if (data.user) {
+      const { data: profile } = await supabase.from('church_users').select('role, status').eq('id', data.user.id).maybeSingle();
+      if (profile?.status === 'suspended') {
+        await supabase.auth.signOut();
+        toast({ title: 'Account suspended', description: 'Your account has been suspended. Please contact the church administrator.', variant: 'destructive' });
+      } else if (profile?.status === 'pending') {
+        toast({ title: 'Account pending approval', description: 'Your registration is awaiting admin approval. You will be notified once approved.' });
         router.push('/');
+        router.refresh();
+      } else if (profile?.role === 'admin' || profile?.role === 'staff') {
+        toast({ title: 'Welcome back!', description: 'You have been signed in.' });
+        router.push('/admin');
+        router.refresh();
+      } else {
+        toast({ title: 'Welcome back!', description: 'You have been signed in.' });
+        router.push('/');
+        router.refresh();
       }
-      router.refresh();
     }
     setLoading(false);
   }
@@ -101,6 +106,11 @@ export default function LoginPage() {
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
+              <div className="text-right">
+                <Link href="/forgot-password" className="text-sm text-teal-400 hover:text-teal-300">
+                  Forgot password?
+                </Link>
+              </div>
             </form>
 
             <div className="mt-6 text-center">

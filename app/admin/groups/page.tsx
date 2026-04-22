@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/providers/AuthProvider';
 import type { Group, UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,13 +12,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Pencil, Loader as Loader2, Users } from 'lucide-react';
+import { Plus, Trash2, Pencil, Loader as Loader2, Users, UserPlus, X } from 'lucide-react';
 
 const CATEGORIES = ['general', 'bible_study', 'youth', 'women', 'men', 'couples', 'seniors', 'outreach'];
 const BLANK = { name: '', description: '', meeting_time: '', location: '', category: 'general', max_members: '', is_open: true, is_published: true, leader_id: '' };
 
 export default function AdminGroupsPage() {
+  const { profile: currentProfile } = useAuth();
   const { toast } = useToast();
   const [groups, setGroups] = useState<Group[]>([]);
   const [members, setMembers] = useState<UserProfile[]>([]);
@@ -27,10 +30,17 @@ export default function AdminGroupsPage() {
   const [editing, setEditing] = useState<Group | null>(null);
   const [form, setForm] = useState<typeof BLANK>({ ...BLANK });
 
+  // Member management state
+  const [membersGroup, setMembersGroup] = useState<Group | null>(null);
+  const [groupMembers, setGroupMembers] = useState<any[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [addingMember, setAddingMember] = useState(false);
+
   async function load() {
     const [{ data: g }, { data: m }] = await Promise.all([
       supabase.from('groups').select('*, church_users(full_name)').order('created_at', { ascending: false }),
-      supabase.from('church_users').select('id, full_name').eq('status', 'active').order('full_name'),
+      supabase.from('church_users').select('id, full_name, email, avatar_url').eq('status', 'active').order('full_name'),
     ]);
     setGroups((g as any) ?? []);
     setMembers((m as any) ?? []);
@@ -62,7 +72,7 @@ export default function AdminGroupsPage() {
     const { error } = editing
       ? await supabase.from('groups').update(payload).eq('id', editing.id)
       : await supabase.from('groups').insert(payload);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); }
+    if (error) { toast({ title: 'Error', description: 'Unable to save group. Please try again.', variant: 'destructive' }); }
     else { toast({ title: editing ? 'Group updated' : 'Group created' }); setOpen(false); load(); }
     setSaving(false);
   }
@@ -75,8 +85,116 @@ export default function AdminGroupsPage() {
     load();
   }
 
+  async function openGroupMembers(g: Group) {
+    setMembersGroup(g);
+    setMembersLoading(true);
+    setSelectedMemberId('');
+    const { data } = await supabase
+      .from('group_members')
+      .select('*, church_users(id, full_name, email, avatar_url)')
+      .eq('group_id', g.id)
+      .order('joined_at');
+    setGroupMembers(data ?? []);
+    setMembersLoading(false);
+  }
+
+  async function handleAddGroupMember() {
+    if (!selectedMemberId || !membersGroup) return;
+    const already = groupMembers.some((m: any) => m.user_id === selectedMemberId);
+    if (already) {
+      toast({ title: 'Already a member', description: 'This person is already in the group.', variant: 'destructive' });
+      return;
+    }
+    setAddingMember(true);
+    const { error } = await supabase.from('group_members').insert({
+      group_id: membersGroup.id,
+      user_id: selectedMemberId,
+      role: 'member',
+      joined_at: new Date().toISOString(),
+    });
+    if (error) { toast({ title: 'Error', description: 'Unable to add member. Please try again.', variant: 'destructive' }); }
+    else { toast({ title: 'Member added!' }); setSelectedMemberId(''); await openGroupMembers(membersGroup); }
+    setAddingMember(false);
+  }
+
+  async function handleRemoveGroupMember(memberId: string) {
+    const { error } = await supabase.from('group_members').delete().eq('id', memberId);
+    if (error) { toast({ title: 'Error', description: 'Unable to remove member. Please try again.', variant: 'destructive' }); return; }
+    toast({ title: 'Member removed' });
+    if (membersGroup) await openGroupMembers(membersGroup);
+  }
+
+  const availableToAdd = members.filter((m) => !groupMembers.some((gm: any) => gm.user_id === m.id));
+
   return (
     <div className="p-6 lg:p-8">
+      {/* Member Management Dialog */}
+      <Dialog open={!!membersGroup} onOpenChange={(o) => { if (!o) setMembersGroup(null); }}>
+        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-700/50 max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white">Members — {membersGroup?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="mt-3 space-y-4">
+            {/* Add member */}
+            <div className="flex gap-2">
+              <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+                <SelectTrigger className="flex-1 bg-slate-800 border-slate-700 text-white text-sm">
+                  <SelectValue placeholder="Select member to add…" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700">
+                  {availableToAdd.length === 0 ? (
+                    <SelectItem value="_none" disabled className="text-slate-500">All members already added</SelectItem>
+                  ) : availableToAdd.map((m) => (
+                    <SelectItem key={m.id} value={m.id} className="text-white">{m.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handleAddGroupMember}
+                disabled={!selectedMemberId || addingMember}
+                className="bg-teal-500 hover:bg-teal-400 text-white shrink-0"
+              >
+                {addingMember ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+              </Button>
+            </div>
+
+            {/* Members list */}
+            {membersLoading ? (
+              <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-teal-400" /></div>
+            ) : groupMembers.length === 0 ? (
+              <p className="text-sm text-slate-500 text-center py-4">No members yet. Add someone above.</p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-slate-500">{groupMembers.length} member{groupMembers.length !== 1 ? 's' : ''}</p>
+                {groupMembers.map((gm: any) => {
+                  const u = gm.church_users;
+                  const initials = u?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?';
+                  return (
+                    <div key={gm.id} className="flex items-center justify-between bg-slate-800 rounded-lg px-3 py-2.5">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarImage src={u?.avatar_url} />
+                          <AvatarFallback className="bg-teal-500/10 text-teal-400 text-xs font-semibold">{initials}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium text-white">{u?.full_name ?? 'Unknown'}</p>
+                          <p className="text-xs text-slate-500">{u?.email}</p>
+                        </div>
+                      </div>
+                      {currentProfile?.role === 'admin' && (
+                        <button onClick={() => handleRemoveGroupMember(gm.id)} className="text-red-400 hover:text-red-300 ml-2">
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Groups Management</h1>
@@ -129,7 +247,7 @@ export default function AdminGroupsPage() {
                 </div>
                 <div>
                   <Label className="text-slate-300">Max Members</Label>
-                  <Input type="number" value={form.max_members} onChange={(e) => setForm({ ...form, max_members: e.target.value })} placeholder="Unlimited" className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
+                  <Input type="number" min="1" max="500" value={form.max_members} onChange={(e) => setForm({ ...form, max_members: e.target.value })} placeholder="Unlimited" className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
                 </div>
               </div>
               <div>
@@ -197,12 +315,17 @@ export default function AdminGroupsPage() {
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center justify-end gap-2">
+                      <Button size="sm" variant="outline" className="h-7 text-xs bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 border border-teal-500/20" onClick={() => openGroupMembers(g)}>
+                        <Users className="h-3.5 w-3.5 mr-1" />Members
+                      </Button>
                       <Button size="sm" variant="outline" className="h-7 text-xs border-slate-600 text-slate-300 hover:bg-slate-700" onClick={() => openEdit(g)}>
                         <Pencil className="h-3.5 w-3.5 mr-1" />Edit
                       </Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20" onClick={() => handleDelete(g.id)}>
-                        <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
-                      </Button>
+                      {currentProfile?.role === 'admin' && (
+                        <Button size="sm" variant="outline" className="h-7 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20" onClick={() => handleDelete(g.id)}>
+                          <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>

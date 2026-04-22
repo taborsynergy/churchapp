@@ -72,6 +72,15 @@ export default function EventsPage() {
       setRsvps(rsvps.filter((r) => r.id !== existing.id));
       toast({ title: 'RSVP cancelled' });
     } else {
+      const event = events.find((e) => e.id === eventId);
+      if (event?.capacity !== null && event?.capacity !== undefined) {
+        const currentCount = (event.event_rsvps ?? []).length;
+        if (currentCount >= event.capacity) {
+          toast({ title: 'Event is full', description: 'This event has reached its maximum capacity.', variant: 'destructive' });
+          setRsvpLoading(null);
+          return;
+        }
+      }
       const { data } = await supabase.from('event_rsvps').insert({ event_id: eventId, user_id: user.id, status: 'attending' }).select().single();
       if (data) setRsvps([...rsvps, data]);
       toast({ title: 'RSVP confirmed!', description: 'You are registered for this event.' });

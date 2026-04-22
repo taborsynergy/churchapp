@@ -55,7 +55,7 @@ export default function AdminAnnouncementsPage() {
     setSaving(true);
     const payload = { ...form, expires_at: form.expires_at || null, created_by: user?.id ?? null, published_at: new Date().toISOString() };
     const { error } = editing ? await supabase.from('announcements').update(payload).eq('id', editing.id) : await supabase.from('announcements').insert(payload);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); }
+    if (error) { toast({ title: 'Error', description: 'Unable to save announcement. Please try again.', variant: 'destructive' }); }
     else { toast({ title: editing ? 'Announcement updated' : 'Announcement created' }); setOpen(false); load(); }
     setSaving(false);
   }
