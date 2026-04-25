@@ -16,20 +16,13 @@ import { useToast } from '@/hooks/use-toast';
 import { DollarSign, TrendingUp, Users, RefreshCw, Loader as Loader2, Plus, Trash2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { useRouter } from 'next/navigation';
 
 const FUND_BLANK = { name: '', description: '', goal_amount: '', is_active: true };
 
 export default function AdminGivingPage() {
-  const router = useRouter();
-  const { profile, loading: authLoading } = useAuth();
+  const { profile } = useAuth();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!authLoading && profile && profile.role !== 'admin') {
-      router.replace('/admin');
-    }
-  }, [profile, authLoading]);
   const [donations, setDonations] = useState<Donation[]>([]);
   const [funds, setFunds] = useState<GivingFund[]>([]);
   const [loading, setLoading] = useState(true);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const ALLOWED_TABLES = ['events', 'sermon_series', 'sermons', 'announcements', 'groups', 'group_members', 'giving_funds'];
+const ALLOWED_TABLES = ['events', 'sermon_series', 'sermons', 'announcements', 'groups', 'small_groups', 'group_members', 'giving_funds', 'attendance', 'church_users', 'users', 'prayer_requests'];
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -18,8 +18,11 @@ async function getCallerRole(authHeader: string | null): Promise<string | null> 
   const { data: { user } } = await client.auth.getUser(token);
   if (!user) return null;
   const svc = adminClient();
-  const { data } = await svc.from('church_users').select('role').eq('id', user.id).single();
-  return data?.role ?? null;
+  // Try church_users first (production table name), fall back to users (migration table name)
+  const { data: cu } = await svc.from('church_users').select('role').eq('id', user.id).maybeSingle();
+  if (cu?.role) return cu.role;
+  const { data: u } = await svc.from('users').select('role').eq('id', user.id).maybeSingle();
+  return u?.role ?? null;
 }
 
 export async function POST(req: NextRequest) {
@@ -32,8 +35,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { table, operation, payload, id } = body as {
       table: string;
-      operation: 'insert' | 'update' | 'delete';
-      payload?: Record<string, unknown>;
+      operation: 'insert' | 'update' | 'delete' | 'upsert';
+      payload?: Record<string, unknown> | Record<string, unknown>[];
       id?: string;
     };
 
@@ -52,6 +55,12 @@ export async function POST(req: NextRequest) {
     } else if (operation === 'delete') {
       if (!id) return NextResponse.json({ error: 'id required for delete' }, { status: 400 });
       result = await svc.from(table).delete().eq('id', id);
+    } else if (operation === 'upsert') {
+      if (!payload) return NextResponse.json({ error: 'payload required for upsert' }, { status: 400 });
+      const rows = Array.isArray(payload) ? payload : [payload];
+      result = id
+        ? await svc.from(table).upsert(rows, { onConflict: id })
+        : await svc.from(table).upsert(rows);
     } else {
       return NextResponse.json({ error: 'Invalid operation' }, { status: 400 });
     }

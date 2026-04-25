@@ -11,11 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { ClipboardList, Check, X, Loader as Loader2, Save } from 'lucide-react';
 import { format } from 'date-fns';
 
-interface AttendanceRecord {
-  user_id: string;
-  present: boolean;
-}
-
 export default function AdminAttendancePage() {
   const { toast } = useToast();
   const [events, setEvents] = useState<any[]>([]);
@@ -69,17 +64,24 @@ export default function AdminAttendancePage() {
   async function handleSave() {
     if (!selectedEvent) return;
     setSaving(true);
-    const upserts = members.map((m) => ({
-      id: existing[m.id] ?? undefined,
-      event_id: selectedEvent,
-      user_id: m.id,
-      present: attendance[m.id] ?? false,
-      marked_at: new Date().toISOString(),
-    }));
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) {
+      toast({ title: 'Not authenticated', description: 'Please log in again.', variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
 
-    const { error } = await supabase.from('attendance').upsert(upserts, { onConflict: 'event_id,user_id' });
-    if (error) {
-      toast({ title: 'Error saving attendance', description: 'Unable to save attendance. Please try again.', variant: 'destructive' });
+    const records = members.map((m) => ({ user_id: m.id, present: attendance[m.id] ?? false }));
+    const res = await fetch('/api/admin/attendance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ event_id: selectedEvent, records }),
+    });
+    const json = await res.json();
+
+    if (!res.ok) {
+      toast({ title: 'Error saving attendance', description: json.error || 'Unable to save attendance.', variant: 'destructive' });
     } else {
       toast({ title: 'Attendance saved!' });
       const { data } = await supabase.from('attendance').select('*').eq('event_id', selectedEvent);

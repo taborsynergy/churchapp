@@ -149,6 +149,8 @@ export default function GivePage() {
                       <button
                         key={a}
                         type="button"
+                        aria-label={`Give $${a}`}
+                        aria-pressed={amount === a.toString()}
                         onClick={() => setAmount(a.toString())}
                         className={`py-2.5 rounded-lg text-sm font-semibold transition-colors border ${amount === a.toString() ? 'bg-teal-500 text-white border-teal-500' : 'bg-slate-800 text-slate-200 border-slate-700 hover:border-teal-500/50'}`}
                       >
@@ -193,11 +195,11 @@ export default function GivePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-slate-300 mb-1.5 block">Your Name</Label>
-                    <Input placeholder="Full name" value={donorName} onChange={(e) => setDonorName(e.target.value)} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" />
+                    <Input autoComplete="name" placeholder="Full name" value={donorName} onChange={(e) => setDonorName(e.target.value)} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" />
                   </div>
                   <div>
                     <Label className="text-slate-300 mb-1.5 block">Email</Label>
-                    <Input type="email" placeholder="your@email.com" value={donorEmail} onChange={(e) => setDonorEmail(e.target.value)} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" />
+                    <Input type="email" autoComplete="email" placeholder="your@email.com" value={donorEmail} onChange={(e) => setDonorEmail(e.target.value)} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" />
                   </div>
                 </div>
 

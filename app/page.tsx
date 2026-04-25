@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import type { Sermon, Event, Announcement } from '@/lib/types';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,6 +26,7 @@ const SERVICES = [
 ];
 
 export default function HomePage() {
+  const { user } = useAuth();
   const [sermons, setSermons] = useState<Sermon[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -65,9 +67,16 @@ export default function HomePage() {
               A warm, welcoming church family where everyone belongs. Come as you are — experience authentic worship, biblical teaching, and a community that cares.
             </p>
             <div className="flex flex-wrap gap-4">
-              <Button size="lg" className="bg-teal-500 hover:bg-teal-400 text-white font-semibold shadow-xl shadow-teal-500/20 text-base px-8 transition-all hover:shadow-teal-500/30 hover:scale-105" asChild>
-                <Link href="/register">Join Our Family</Link>
-              </Button>
+              {!user && (
+                <Button size="lg" className="bg-teal-500 hover:bg-teal-400 text-white font-semibold shadow-xl shadow-teal-500/20 text-base px-8 transition-all hover:shadow-teal-500/30 hover:scale-105" asChild>
+                  <Link href="/register">Join Our Family</Link>
+                </Button>
+              )}
+              {user && (
+                <Button size="lg" className="bg-teal-500 hover:bg-teal-400 text-white font-semibold shadow-xl shadow-teal-500/20 text-base px-8 transition-all hover:shadow-teal-500/30 hover:scale-105" asChild>
+                  <Link href="/profile">My Profile</Link>
+                </Button>
+              )}
               <Button size="lg" variant="outline" className="border-slate-600 text-slate-200 hover:bg-slate-800 hover:text-white hover:border-slate-500 bg-transparent text-base px-8 transition-all" asChild>
                 <Link href="/sermons">
                   <Play className="h-4 w-4 mr-2" />
@@ -294,9 +303,11 @@ export default function HomePage() {
                 Whether you&apos;re exploring faith for the first time or looking for a church home, you&apos;re welcome here. No pressure, no expectations — just community.
               </p>
               <div className="flex flex-wrap gap-4">
-                <Button size="lg" className="bg-teal-500 hover:bg-teal-400 text-white font-semibold shadow-xl shadow-teal-500/20 hover:shadow-teal-500/30 transition-all hover:scale-105" asChild>
-                  <Link href="/register">Create Your Account</Link>
-                </Button>
+                {!user && (
+                  <Button size="lg" className="bg-teal-500 hover:bg-teal-400 text-white font-semibold shadow-xl shadow-teal-500/20 hover:shadow-teal-500/30 transition-all hover:scale-105" asChild>
+                    <Link href="/register">Create Your Account</Link>
+                  </Button>
+                )}
                 <Button size="lg" variant="outline" className="border-slate-600 text-slate-200 hover:bg-slate-800 hover:border-slate-500 bg-transparent transition-all" asChild>
                   <Link href="/groups">Find a Small Group</Link>
                 </Button>

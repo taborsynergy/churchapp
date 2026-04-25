@@ -62,6 +62,7 @@ export default function AnnouncementsPage() {
           <div className="text-center py-20 text-slate-500">
             <Megaphone className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p className="font-medium">No announcements at this time</p>
+            <p className="text-sm mt-1">Check back soon for updates from Grace Community Church.</p>
           </div>
         ) : (
           <div className="space-y-4">

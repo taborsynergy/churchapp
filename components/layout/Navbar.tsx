@@ -30,7 +30,7 @@ const navLinks = [
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'staff';
@@ -76,7 +76,7 @@ export default function Navbar() {
           </nav>
 
           <div className="flex items-center gap-2">
-            {user ? (
+            {!loading && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button aria-label="Open account menu" className="flex items-center gap-2 rounded-xl hover:bg-slate-800 px-2 py-1.5 transition-all outline-none border border-transparent hover:border-slate-700/50">
@@ -117,7 +117,7 @@ export default function Navbar() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            ) : (
+            ) : !loading ? (
               <div className="hidden sm:flex items-center gap-2">
                 <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white hover:bg-slate-800" asChild>
                   <Link href="/login">Sign In</Link>
@@ -126,7 +126,7 @@ export default function Navbar() {
                   <Link href="/register">Join Us</Link>
                 </Button>
               </div>
-            )}
+            ) : null}
 
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
@@ -152,7 +152,7 @@ export default function Navbar() {
                     </Link>
                   ))}
                   <div className="border-t border-slate-700/50 mt-3 pt-3">
-                    {user ? (
+                    {!loading && user ? (
                       <>
                         <Link
                           href="/profile"

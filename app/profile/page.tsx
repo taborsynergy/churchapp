@@ -91,16 +91,25 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     setUploading(true);
-    const ext = file.name.split('.').pop();
-    const path = `avatars/${user.id}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from('church-media').upload(path, file, { upsert: true });
-    if (uploadError) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload-avatar', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        toast({ title: 'Upload failed', description: result.error ?? 'Unable to upload photo.', variant: 'destructive' });
+      } else {
+        await refreshProfile();
+        toast({ title: 'Photo updated!' });
+      }
+    } catch {
       toast({ title: 'Upload failed', description: 'Unable to upload photo. Please try again.', variant: 'destructive' });
-    } else {
-      const { data } = supabase.storage.from('church-media').getPublicUrl(path);
-      await supabase.from('church_users').update({ avatar_url: data.publicUrl }).eq('id', user.id);
-      await refreshProfile();
-      toast({ title: 'Photo updated!' });
     }
     setUploading(false);
   }
@@ -130,9 +139,9 @@ export default function ProfilePage() {
                     <AvatarImage src={profile.avatar_url} />
                     <AvatarFallback className="bg-teal-500/20 text-teal-400 text-xl font-bold">{initials}</AvatarFallback>
                   </Avatar>
-                  <label className="absolute bottom-0 right-0 w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-teal-400 transition-colors shadow-md">
-                    {uploading ? <Loader2 className="h-4 w-4 text-white animate-spin" /> : <Camera className="h-4 w-4 text-white" />}
-                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                  <label aria-label="Upload profile photo" className="absolute bottom-0 right-0 w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-teal-400 transition-colors shadow-md">
+                    {uploading ? <Loader2 className="h-4 w-4 text-white animate-spin" aria-hidden="true" /> : <Camera className="h-4 w-4 text-white" aria-hidden="true" />}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} aria-label="Choose profile photo file" />
                   </label>
                 </div>
                 <h2 className="font-bold text-white text-lg">{profile.full_name || 'Your Name'}</h2>
@@ -186,16 +195,16 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-slate-300">Full Name</Label>
-                      <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
+                      <Input autoComplete="name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
                     </div>
                     <div>
                       <Label className="text-slate-300">Phone</Label>
-                      <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(555) 000-0000" className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
+                      <Input autoComplete="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(555) 000-0000" className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
                     </div>
                   </div>
                   <div>
                     <Label className="text-slate-300">Address</Label>
-                    <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="123 Main St, City, State" className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
+                    <Input autoComplete="street-address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="123 Main St, City, State" className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
                   </div>
                   <div>
                     <Label className="text-slate-300">Bio</Label>

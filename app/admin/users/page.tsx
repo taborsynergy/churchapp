@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { adminWrite } from '@/lib/admin-write';
 import { Search, UserCheck, UserX, Users, Loader as Loader2, UserPlus, Ban } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -46,7 +47,7 @@ export default function AdminUsersPage() {
 
   async function updateUser(id: string, updates: Partial<UserProfile>) {
     setUpdating(id);
-    const { error } = await supabase.from('church_users').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
+    const { error } = await adminWrite('church_users', 'update', { ...updates, updated_at: new Date().toISOString() }, id);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
@@ -246,7 +247,9 @@ export default function AdminUsersPage() {
                         </Select>
                       </td>
                       <td className="px-4 py-3.5 hidden md:table-cell text-slate-500 text-xs">
-                        {format(new Date(u.created_at), 'MMM d, yyyy')}
+                        {u.created_at
+                          ? format(new Date(u.created_at.slice(0, 10) + 'T12:00:00'), 'MMM d, yyyy')
+                          : '—'}
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-2">

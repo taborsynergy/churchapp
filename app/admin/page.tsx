@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/components/providers/AuthProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users, BookOpen, Calendar, Heart, DollarSign, Megaphone, TrendingUp, Clock } from 'lucide-react';
@@ -21,15 +19,6 @@ interface Stats {
 }
 
 export default function AdminDashboard() {
-  const router = useRouter();
-  const { profile: currentProfile, loading: authLoading } = useAuth();
-
-  useEffect(() => {
-    if (!authLoading && currentProfile && currentProfile.role !== 'admin') {
-      router.replace('/admin/sermons');
-    }
-  }, [currentProfile, authLoading]);
-
   const [stats, setStats] = useState<Stats>({ totalMembers: 0, pendingMembers: 0, totalSermons: 0, upcomingEvents: 0, openPrayers: 0, totalDonations: 0, monthDonations: 0 });
   const [recentUsers, setRecentUsers] = useState<UserProfile[]>([]);
   const [recentDonations, setRecentDonations] = useState<Donation[]>([]);

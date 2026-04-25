@@ -54,18 +54,27 @@ export default function AdminAnnouncementsPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const payload: Record<string, unknown> = { ...form, expires_at: form.expires_at || null, created_by: user?.id ?? null, published_at: new Date().toISOString() };
-    const { error } = editing ? await adminWrite('announcements', 'update', payload, editing.id) : await adminWrite('announcements', 'insert', payload);
-    if (error) { toast({ title: 'Error', description: 'Unable to save announcement. Please try again.', variant: 'destructive' }); }
+    const base = { title: form.title, body: form.body, priority: form.priority, expires_at: form.expires_at || null, is_published: form.is_published };
+    const payload: Record<string, unknown> = editing
+      ? base
+      : { ...base, created_by: user?.id ?? null, published_at: new Date().toISOString() };
+    const { error } = editing
+      ? await adminWrite('announcements', 'update', payload, editing.id)
+      : await adminWrite('announcements', 'insert', payload);
+    if (error) { toast({ title: 'Error', description: error.message || 'Unable to save announcement.', variant: 'destructive' }); }
     else { toast({ title: editing ? 'Announcement updated' : 'Announcement created' }); setOpen(false); load(); }
     setSaving(false);
   }
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this announcement?')) return;
-    await adminWrite('announcements', 'delete', undefined, id);
-    toast({ title: 'Announcement deleted' });
-    load();
+    const { error } = await adminWrite('announcements', 'delete', undefined, id);
+    if (error) {
+      toast({ title: 'Delete failed', description: error.message || 'Unable to delete announcement.', variant: 'destructive' });
+    } else {
+      toast({ title: 'Announcement deleted' });
+      load();
+    }
   }
 
   return (

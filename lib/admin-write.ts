@@ -1,11 +1,11 @@
 import { supabase } from './supabase';
 
-type Operation = 'insert' | 'update' | 'delete';
+type Operation = 'insert' | 'update' | 'delete' | 'upsert';
 
 export async function adminWrite(
   table: string,
   operation: Operation,
-  payload?: Record<string, unknown>,
+  payload?: Record<string, unknown> | Record<string, unknown>[],
   id?: string
 ): Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }> {
   const { data: { session } } = await supabase.auth.getSession();

@@ -7,7 +7,6 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Users, MapPin, Clock, Check, Loader as Loader2 } from 'lucide-react';
 
@@ -33,11 +32,11 @@ export default function GroupsPage() {
   const [category, setCategory] = useState('all');
 
   async function load() {
-    const [{ data: g }, { data: m }] = await Promise.all([
-      supabase.from('groups').select('*, church_users(full_name), group_members(*)').eq('is_published', true),
+    const [groupsRes, { data: m }] = await Promise.all([
+      fetch('/api/groups').then((r) => r.json()),
       user ? supabase.from('group_members').select('group_id').eq('user_id', user.id) : Promise.resolve({ data: [] }),
     ]);
-    setGroups(g ?? []);
+    setGroups(groupsRes.groups ?? []);
     setMyGroupIds((m ?? []).map((x: any) => x.group_id));
     setLoading(false);
   }
@@ -51,6 +50,12 @@ export default function GroupsPage() {
     }
     if (profile.status !== 'active') {
       toast({ title: 'Account pending', description: 'Your account must be approved.', variant: 'destructive' });
+      return;
+    }
+    const group = groups.find((g) => g.id === groupId);
+    const memberCount = (group?.group_members ?? []).length;
+    if (!myGroupIds.includes(groupId) && group?.max_members && memberCount >= group.max_members) {
+      toast({ title: 'Group is full', description: 'This group has reached its maximum capacity.', variant: 'destructive' });
       return;
     }
     setJoinLoading(groupId);
@@ -109,7 +114,8 @@ export default function GroupsPage() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-slate-500">
             <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No groups found in this category</p>
+            <p className="font-medium">{category === 'all' ? 'No groups available yet' : 'No groups in this category yet'}</p>
+            <p className="text-sm mt-1">Check back soon or try a different category.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -132,11 +138,6 @@ export default function GroupsPage() {
                         {CATEGORY_LABELS[group.category]}
                       </span>
                     </div>
-                    {!group.is_open && (
-                      <div className="absolute top-3 right-3">
-                        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-700/80 text-slate-400">Closed</span>
-                      </div>
-                    )}
                   </div>
                   <CardContent className="p-5">
                     <h3 className="font-bold text-white text-base mb-1">{group.name}</h3>
@@ -159,17 +160,17 @@ export default function GroupsPage() {
                         <span>{memberCount} member{memberCount !== 1 ? 's' : ''}{group.max_members ? ` / ${group.max_members} max` : ''}</span>
                       </div>
                     </div>
-                    {group.users && (
-                      <p className="text-xs text-slate-500 mb-3">Led by <span className="font-medium text-slate-300">{(group.users as any).full_name}</span></p>
+                    {(group as any).leader_name && (
+                      <p className="text-xs text-slate-500 mb-3">Led by <span className="font-medium text-slate-300">{(group as any).leader_name}</span></p>
                     )}
                     <Button
                       size="sm"
                       className={`w-full ${isMember ? 'bg-green-600 hover:bg-red-600 text-white' : 'bg-teal-500 hover:bg-teal-400 text-white font-semibold'}`}
                       onClick={() => handleJoin(group.id)}
-                      disabled={joinLoading === group.id || (!isMember && !group.is_open)}
+                      disabled={joinLoading === group.id}
                     >
                       {joinLoading === group.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : isMember ? <Check className="h-4 w-4 mr-2" /> : null}
-                      {!group.is_open && !isMember ? 'Group Full' : isMember ? 'Joined (Leave)' : 'Join Group'}
+                      {isMember ? 'Joined (Leave)' : 'Join Group'}
                     </Button>
                   </CardContent>
                 </Card>

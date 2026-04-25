@@ -132,7 +132,8 @@ export default function EventsPage() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-slate-500">
             <Calendar className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No events found</p>
+            <p className="font-medium">{filter === 'upcoming' ? 'No upcoming events' : 'No past events found'}</p>
+            <p className="text-sm mt-1">{filter === 'upcoming' ? 'Check back soon for new events.' : 'Try switching to upcoming events.'}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/providers/AuthProvider';
-import type { Group, UserProfile } from '@/lib/types';
+import type { UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,35 +15,37 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Pencil, Loader as Loader2, Users, UserPlus, X } from 'lucide-react';
+import { adminWrite } from '@/lib/admin-write';
 
 const CATEGORIES = ['general', 'bible_study', 'youth', 'women', 'men', 'couples', 'seniors', 'outreach'];
-// is_published maps to DB column "published"; leader_id is UI-only (stored as leader_name text in DB)
 const BLANK = { name: '', description: '', meeting_time: '', location: '', category: 'general', max_members: '', is_published: true, leader_id: 'none' };
 
 export default function AdminGroupsPage() {
   const { profile: currentProfile } = useAuth();
   const { toast } = useToast();
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState<Group | null>(null);
+  const [editing, setEditing] = useState<any | null>(null);
   const [form, setForm] = useState<typeof BLANK>({ ...BLANK });
 
   // Member management state
-  const [membersGroup, setMembersGroup] = useState<Group | null>(null);
+  const [membersGroup, setMembersGroup] = useState<any | null>(null);
   const [groupMembers, setGroupMembers] = useState<any[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState('');
   const [addingMember, setAddingMember] = useState(false);
 
   async function load() {
-    const [{ data: g }, { data: m }] = await Promise.all([
-      supabase.from('groups').select('*').order('created_at', { ascending: false }),
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token ?? '';
+    const [groupsRes, { data: m }] = await Promise.all([
+      fetch('/api/admin/groups', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       supabase.from('church_users').select('id, full_name, email, avatar_url').eq('status', 'active').order('full_name'),
     ]);
-    setGroups((g as any) ?? []);
+    setGroups(groupsRes.groups ?? []);
     setMembers((m as any) ?? []);
     setLoading(false);
   }
@@ -56,7 +58,7 @@ export default function AdminGroupsPage() {
     setForm({
       name: g.name, description: g.description ?? '', meeting_time: g.meeting_time ?? '',
       location: g.location ?? '', category: g.category ?? 'general', max_members: g.max_members?.toString() ?? '',
-      is_published: g.published ?? true, leader_id: 'none',
+      is_published: g.is_published ?? true, leader_id: g.leader_id ?? 'none',
     });
     setOpen(true);
   }
@@ -64,20 +66,33 @@ export default function AdminGroupsPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const leaderMember = form.leader_id !== 'none' ? members.find((m) => m.id === form.leader_id) : null;
-    const payload = {
-      name: form.name,
+    const trimmedName = form.name.trim();
+    if (!trimmedName) {
+      toast({ title: 'Group name is required', variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
+    const duplicate = groups.some(
+      (g) => g.name.toLowerCase() === trimmedName.toLowerCase() && (!editing || editing.id !== g.id)
+    );
+    if (duplicate) {
+      toast({ title: 'Duplicate name', description: 'A group with this name already exists.', variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
+    const payload: Record<string, unknown> = {
+      name: trimmedName,
       description: form.description,
       category: form.category,
       meeting_time: form.meeting_time,
       location: form.location,
       max_members: form.max_members ? parseInt(form.max_members) : null,
-      published: form.is_published,
-      leader_name: leaderMember?.full_name ?? null,
+      is_published: form.is_published,
+      leader_id: form.leader_id !== 'none' ? form.leader_id : null,
     };
     const { error } = editing
-      ? await supabase.from('groups').update(payload).eq('id', (editing as any).id)
-      : await supabase.from('groups').insert(payload);
+      ? await adminWrite('small_groups', 'update', payload, editing.id)
+      : await adminWrite('small_groups', 'insert', payload);
     if (error) { toast({ title: 'Error', description: 'Unable to save group. Please try again.', variant: 'destructive' }); }
     else { toast({ title: editing ? 'Group updated' : 'Group created' }); setOpen(false); load(); }
     setSaving(false);
@@ -86,21 +101,25 @@ export default function AdminGroupsPage() {
   async function handleDelete(id: string) {
     if (!confirm('Delete this group? All members will be removed.')) return;
     await supabase.from('group_members').delete().eq('group_id', id);
-    await supabase.from('groups').delete().eq('id', id);
+    await adminWrite('small_groups', 'delete', undefined, id);
     toast({ title: 'Group deleted' });
     load();
   }
 
-  async function openGroupMembers(g: Group) {
+  async function openGroupMembers(g: any) {
     setMembersGroup(g);
     setMembersLoading(true);
     setSelectedMemberId('');
-    const { data } = await supabase
-      .from('group_members')
-      .select('*, church_users(id, full_name, email, avatar_url)')
-      .eq('group_id', g.id)
-      .order('joined_at');
-    setGroupMembers(data ?? []);
+    const { data: gmData } = await supabase.from('group_members').select('*').eq('group_id', g.id).order('joined_at');
+    const userIds = (gmData ?? []).map((gm: any) => gm.user_id);
+    const { data: profiles } = userIds.length > 0
+      ? await supabase.from('church_users').select('id, full_name, email, avatar_url').in('id', userIds)
+      : { data: [] as any[] };
+    const merged = (gmData ?? []).map((gm: any) => ({
+      ...gm,
+      church_users: (profiles ?? []).find((u: any) => u.id === gm.user_id) ?? null,
+    }));
+    setGroupMembers(merged);
     setMembersLoading(false);
   }
 
@@ -111,8 +130,12 @@ export default function AdminGroupsPage() {
       toast({ title: 'Already a member', description: 'This person is already in the group.', variant: 'destructive' });
       return;
     }
+    if (membersGroup.max_members && groupMembers.length >= membersGroup.max_members) {
+      toast({ title: 'Group is full', description: 'This group has reached its maximum capacity. Increase the limit first.', variant: 'destructive' });
+      return;
+    }
     setAddingMember(true);
-    const { error } = await supabase.from('group_members').insert({
+    const { error } = await adminWrite('group_members', 'insert', {
       group_id: membersGroup.id,
       user_id: selectedMemberId,
       role: 'member',
@@ -124,7 +147,7 @@ export default function AdminGroupsPage() {
   }
 
   async function handleRemoveGroupMember(memberId: string) {
-    const { error } = await supabase.from('group_members').delete().eq('id', memberId);
+    const { error } = await adminWrite('group_members', 'delete', undefined, memberId);
     if (error) { toast({ title: 'Error', description: 'Unable to remove member. Please try again.', variant: 'destructive' }); return; }
     toast({ title: 'Member removed' });
     if (membersGroup) await openGroupMembers(membersGroup);
@@ -187,7 +210,7 @@ export default function AdminGroupsPage() {
                           <p className="text-xs text-slate-500">{u?.email}</p>
                         </div>
                       </div>
-                      {currentProfile?.role === 'admin' && (
+                      {(currentProfile?.role === 'admin' || currentProfile?.role === 'staff') && (
                         <button onClick={() => handleRemoveGroupMember(gm.id)} className="text-red-400 hover:text-red-300 ml-2">
                           <X className="h-4 w-4" />
                         </button>
@@ -282,6 +305,7 @@ export default function AdminGroupsPage() {
         </div>
       ) : (
         <div className="bg-slate-900 rounded-xl border border-slate-700/50 overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-700/50">
@@ -301,15 +325,15 @@ export default function AdminGroupsPage() {
                   </td>
                   <td className="px-4 py-3.5">
                     <Badge className="bg-slate-700/50 text-slate-300 border border-slate-600/30 capitalize text-xs">
-                      {g.category.replace('_', ' ')}
+                      {(g.category ?? 'general').replace('_', ' ')}
                     </Badge>
                   </td>
                   <td className="px-4 py-3.5 hidden md:table-cell text-slate-400 text-xs">
-                    {(g as any).leader_name ?? '—'}
+                    {members.find((m) => m.id === g.leader_id)?.full_name ?? '—'}
                   </td>
                   <td className="px-4 py-3.5">
                     <div className="flex gap-1.5">
-                      {(g as any).published ? <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs">Published</Badge> : <Badge className="bg-slate-700/50 text-slate-400 text-xs">Draft</Badge>}
+                      {g.is_published ? <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs">Published</Badge> : <Badge className="bg-slate-700/50 text-slate-400 text-xs">Draft</Badge>}
                     </div>
                   </td>
                   <td className="px-5 py-3.5">
@@ -331,6 +355,7 @@ export default function AdminGroupsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

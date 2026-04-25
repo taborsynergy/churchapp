@@ -16,6 +16,7 @@ import { Plus, Trash2, Pencil, Loader as Loader2, Calendar, Users } from 'lucide
 import { format } from 'date-fns';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { adminWrite } from '@/lib/admin-write';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 
 const BLANK = { title: '', description: '', location: '', start_date: '', end_date: '', image_url: '', capacity: '', category: 'general', is_published: true };
 
@@ -49,7 +50,15 @@ export default function AdminEventsPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!editing && form.start_date && new Date(form.start_date) < new Date()) {
+    if (!form.title.trim()) {
+      toast({ title: 'Title required', description: 'Please enter an event title.', variant: 'destructive' });
+      return;
+    }
+    if (!form.start_date) {
+      toast({ title: 'Start date required', description: 'Please pick a start date and time.', variant: 'destructive' });
+      return;
+    }
+    if (!editing && new Date(form.start_date) < new Date()) {
       toast({ title: 'Invalid date', description: 'Event date cannot be in the past.', variant: 'destructive' });
       return;
     }
@@ -117,8 +126,29 @@ export default function AdminEventsPage() {
             <form onSubmit={handleSave} className="space-y-4">
               <div><Label className="text-slate-200">Title *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label className="text-slate-200">Start Date & Time *</Label><Input type="datetime-local" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} required className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
-                <div><Label className="text-slate-200">End Date & Time</Label><Input type="datetime-local" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
+                <div>
+                  <Label className="text-slate-200">Start Date &amp; Time *</Label>
+                  <div className="mt-1">
+                    <DateTimePicker
+                      value={form.start_date}
+                      onChange={(v) => setForm({ ...form, start_date: v })}
+                      disablePast={!editing}
+                      disabled={saving}
+                      placeholder="Pick start date & time"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-slate-200">End Date &amp; Time</Label>
+                  <div className="mt-1">
+                    <DateTimePicker
+                      value={form.end_date}
+                      onChange={(v) => setForm({ ...form, end_date: v })}
+                      disabled={saving}
+                      placeholder="Pick end date & time"
+                    />
+                  </div>
+                </div>
               </div>
               <div><Label className="text-slate-200">Location</Label><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
               <div className="grid grid-cols-2 gap-3">

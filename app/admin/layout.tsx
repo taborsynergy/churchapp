@@ -44,7 +44,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <p className="text-xs text-slate-400 mt-0.5">Grace Community Church</p>
         </div>
         <nav className="p-3 flex-1">
-          {NAV.map((item) => (
+          {NAV.filter((item) => item.href !== '/admin/users' || profile?.role === 'admin').map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -67,7 +67,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       <div className="flex-1 overflow-auto">
         <div className="md:hidden bg-slate-900 text-slate-200 flex gap-1 p-2 overflow-x-auto border-b border-slate-800/60">
-          {NAV.map((item) => (
+          {NAV.filter((item) => item.href !== '/admin/users' || profile?.role === 'admin').map((item) => (
             <Link
               key={item.href}
               href={item.href}
