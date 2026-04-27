@@ -310,6 +310,7 @@ describe('TC-013: PrayerRequest interface', () => {
     is_anonymous: true,
     status: 'open',
     category: 'health',
+    answer_note: null,
     created_at: '2024-06-01T00:00:00Z',
   };
 

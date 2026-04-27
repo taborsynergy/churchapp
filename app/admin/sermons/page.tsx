@@ -12,13 +12,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Pencil, Loader as Loader2, BookOpen, ListVideo } from 'lucide-react';
-import { format } from 'date-fns';
+import { Plus, Trash2, Pencil, Loader as Loader2, BookOpen, ListVideo, Upload, X } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { adminWrite } from '@/lib/admin-write';
 
 const BLANK = { title: '', description: '', pastor: '', series_id: 'none', video_url: '', audio_url: '', thumbnail_url: '', scripture_reference: '', duration_minutes: 0, is_published: false };
 const SERIES_BLANK = { title: '', description: '', image_url: '', is_active: true };
+
+function isValidUrl(value: string): boolean {
+  if (!value.trim()) return true;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 export default function AdminSermonsPage() {
   const { profile } = useAuth();
@@ -30,9 +39,28 @@ export default function AdminSermonsPage() {
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Sermon | null>(null);
   const [form, setForm] = useState<typeof BLANK>({ ...BLANK });
+  const [urlErrors, setUrlErrors] = useState<Record<string, string>>({});
   const [seriesOpen, setSeriesOpen] = useState(false);
   const [seriesSaving, setSeriesSaving] = useState(false);
   const [seriesForm, setSeriesForm] = useState<typeof SERIES_BLANK>({ ...SERIES_BLANK });
+  const [seriesUrlError, setSeriesUrlError] = useState('');
+  const [uploadingThumb, setUploadingThumb] = useState(false);
+
+  function validateUrl(field: string, value: string, setter: (e: Record<string, string>) => void, current: Record<string, string>) {
+    if (!value.trim()) {
+      const next = { ...current };
+      delete next[field];
+      setter(next);
+      return;
+    }
+    if (!isValidUrl(value)) {
+      setter({ ...current, [field]: 'Enter a valid URL starting with https://' });
+    } else {
+      const next = { ...current };
+      delete next[field];
+      setter(next);
+    }
+  }
 
   async function load() {
     const [{ data: s }, { data: sr }] = await Promise.all([
@@ -46,15 +74,48 @@ export default function AdminSermonsPage() {
 
   useEffect(() => { load(); }, []);
 
-  function openNew() { setEditing(null); setForm({ ...BLANK }); setOpen(true); }
+  function openNew() { setEditing(null); setForm({ ...BLANK }); setUrlErrors({}); setOpen(true); }
   function openEdit(s: Sermon) {
     setEditing(s);
     setForm({ title: s.title, description: s.description, pastor: s.pastor, series_id: s.series_id ?? 'none', video_url: s.video_url, audio_url: s.audio_url, thumbnail_url: s.thumbnail_url, scripture_reference: s.scripture_reference, duration_minutes: s.duration_minutes, is_published: s.is_published });
+    setUrlErrors({});
     setOpen(true);
+  }
+
+  async function handleThumbnailUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingThumb(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('folder', 'sermons');
+    const res = await fetch('/api/admin/upload-image', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: fd,
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      toast({ title: 'Upload failed', description: json.error ?? 'Unable to upload image.', variant: 'destructive' });
+    } else {
+      setForm((prev) => ({ ...prev, thumbnail_url: json.url }));
+      const next = { ...urlErrors };
+      delete next['thumbnail_url'];
+      setUrlErrors(next);
+    }
+    setUploadingThumb(false);
+    e.target.value = '';
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    const urlFields: Array<keyof typeof BLANK> = ['video_url', 'audio_url', 'thumbnail_url'];
+    const invalidField = urlFields.find((f) => !isValidUrl(form[f] as string));
+    if (invalidField) {
+      toast({ title: 'Invalid URL', description: `Please enter a valid URL for ${invalidField.replace(/_/g, ' ')}.`, variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     const payload: Record<string, unknown> = { ...form, series_id: form.series_id && form.series_id !== 'none' ? form.series_id : null, published_at: form.is_published ? new Date().toISOString() : null };
     const { error } = editing ? await adminWrite('sermons', 'update', payload, editing.id) : await adminWrite('sermons', 'insert', payload);
@@ -65,25 +126,37 @@ export default function AdminSermonsPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this sermon?')) return;
-    await supabase.from('sermons').delete().eq('id', id);
-    toast({ title: 'Sermon deleted' });
-    load();
+    const { error } = await adminWrite('sermons', 'delete', undefined, id);
+    if (error) {
+      toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Sermon deleted' });
+      load();
+    }
   }
 
   async function handleSeriesSave(e: React.FormEvent) {
     e.preventDefault();
+    if (!isValidUrl(seriesForm.image_url)) {
+      toast({ title: 'Invalid URL', description: 'Please enter a valid URL for image URL.', variant: 'destructive' });
+      return;
+    }
     setSeriesSaving(true);
     const { error } = await adminWrite('sermon_series', 'insert', seriesForm as Record<string, unknown>);
     if (error) { toast({ title: 'Error', description: 'Unable to create series. Please try again.', variant: 'destructive' }); }
-    else { toast({ title: 'Series created!' }); setSeriesForm({ ...SERIES_BLANK }); setSeriesOpen(false); load(); }
+    else { toast({ title: 'Series created!' }); setSeriesForm({ ...SERIES_BLANK }); setSeriesUrlError(''); setSeriesOpen(false); load(); }
     setSeriesSaving(false);
   }
 
   async function handleSeriesDelete(id: string) {
     if (!confirm('Delete this series? Sermons will not be deleted.')) return;
-    await supabase.from('sermon_series').delete().eq('id', id);
-    toast({ title: 'Series deleted' });
-    load();
+    const { error } = await adminWrite('sermon_series', 'delete', undefined, id);
+    if (error) {
+      toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Series deleted' });
+      load();
+    }
   }
 
   return (
@@ -114,7 +187,14 @@ export default function AdminSermonsPage() {
                 </div>
                 <div>
                   <Label className="text-slate-300">Image URL</Label>
-                  <Input value={seriesForm.image_url} onChange={(e) => setSeriesForm({ ...seriesForm, image_url: e.target.value })} placeholder="https://..." className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
+                  <Input
+                    value={seriesForm.image_url}
+                    onChange={(e) => { setSeriesForm({ ...seriesForm, image_url: e.target.value }); if (seriesUrlError) setSeriesUrlError(''); }}
+                    onBlur={(e) => { if (e.target.value && !isValidUrl(e.target.value)) setSeriesUrlError('Enter a valid URL starting with https://'); else setSeriesUrlError(''); }}
+                    placeholder="https://..."
+                    className={`bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1 ${seriesUrlError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                  />
+                  {seriesUrlError && <p className="text-xs text-red-400 mt-1">{seriesUrlError}</p>}
                 </div>
                 <div className="flex items-center gap-3">
                   <Switch checked={seriesForm.is_active} onCheckedChange={(v) => setSeriesForm({ ...seriesForm, is_active: v })} />
@@ -150,9 +230,46 @@ export default function AdminSermonsPage() {
                 </div>
                 <div><Label className="text-slate-200">Scripture Reference</Label><Input value={form.scripture_reference} onChange={(e) => setForm({ ...form, scripture_reference: e.target.value })} placeholder="e.g. John 3:16" className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
                 <div><Label className="text-slate-200">Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
-                <div><Label className="text-slate-200">Video URL</Label><Input value={form.video_url} onChange={(e) => setForm({ ...form, video_url: e.target.value })} placeholder="YouTube or Vimeo URL" className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
-                <div><Label className="text-slate-200">Audio URL</Label><Input value={form.audio_url} onChange={(e) => setForm({ ...form, audio_url: e.target.value })} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
-                <div><Label className="text-slate-200">Thumbnail URL</Label><Input value={form.thumbnail_url} onChange={(e) => setForm({ ...form, thumbnail_url: e.target.value })} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
+                {(['video_url', 'audio_url'] as const).map((field) => (
+                  <div key={field}>
+                    <Label className="text-slate-200 capitalize">{field.replace(/_/g, ' ').replace('url', 'URL')}</Label>
+                    <Input
+                      value={form[field]}
+                      placeholder="https://..."
+                      onChange={(e) => {
+                        setForm({ ...form, [field]: e.target.value });
+                        if (urlErrors[field]) {
+                          const next = { ...urlErrors };
+                          delete next[field];
+                          setUrlErrors(next);
+                        }
+                      }}
+                      onBlur={(e) => validateUrl(field, e.target.value, setUrlErrors, urlErrors)}
+                      className={`bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1 ${urlErrors[field] ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                    />
+                    {urlErrors[field] && <p className="text-xs text-red-400 mt-1">{urlErrors[field]}</p>}
+                  </div>
+                ))}
+                <div>
+                  <Label className="text-slate-200">Thumbnail Image</Label>
+                  <div className="flex items-center gap-3 mt-1">
+                    {form.thumbnail_url && (
+                      <img src={form.thumbnail_url} alt="Thumbnail" className="h-12 w-20 object-cover rounded border border-slate-700 shrink-0" />
+                    )}
+                    <label className="cursor-pointer flex-1">
+                      <input type="file" accept="image/*" className="hidden" onChange={handleThumbnailUpload} disabled={uploadingThumb} />
+                      <div className={`flex items-center justify-center gap-2 h-10 px-3 rounded-md border border-slate-700 bg-slate-800 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors ${uploadingThumb ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                        {uploadingThumb ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                        {uploadingThumb ? 'Uploading...' : form.thumbnail_url ? 'Change Image' : 'Upload Thumbnail'}
+                      </div>
+                    </label>
+                    {form.thumbnail_url && (
+                      <button type="button" onClick={() => setForm({ ...form, thumbnail_url: '' })} className="shrink-0 text-red-400 hover:text-red-300">
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <div><Label className="text-slate-200">Duration (minutes)</Label><Input type="number" min="0" value={form.duration_minutes} onChange={(e) => setForm({ ...form, duration_minutes: parseInt(e.target.value) || 0 })} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
                 <div className="flex items-center gap-3">
                   <Switch checked={form.is_published} onCheckedChange={(c) => setForm({ ...form, is_published: c })} className="data-[state=unchecked]:bg-slate-700" />

@@ -13,12 +13,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { HandHeart, DollarSign, Shield, Heart, RefreshCw, Loader as Loader2 } from 'lucide-react';
+import { PendingApprovalScreen } from '@/components/ui/pending-approval';
 
 const PRESET_AMOUNTS = [25, 50, 100, 250, 500];
 
 export default function GivePage() {
   const router = useRouter();
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, session, profile, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -77,19 +78,23 @@ export default function GivePage() {
     setCheckoutLoading(true);
 
     try {
-      const { error } = await supabase.from('donations').insert({
-        user_id: user?.id ?? null,
-        fund_id: selectedFund,
-        amount: numAmount,
-        frequency: paymentType === 'recurring' ? 'recurring' : 'one_time',
-        status: 'completed',
-        donor_name: donorName || (profile?.full_name ?? 'Anonymous'),
-        donor_email: donorEmail || (user?.email ?? ''),
-        stripe_payment_intent_id: `demo_${Date.now()}`,
-        stripe_session_id: `demo_session_${Date.now()}`,
+      const res = await fetch('/api/give', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({
+          fund_id: selectedFund,
+          amount: numAmount,
+          payment_type: paymentType,
+          donor_name: donorName || (profile?.full_name ?? 'Anonymous'),
+          donor_email: donorEmail || (user?.email ?? ''),
+        }),
       });
-      if (error) {
-        toast({ title: 'Donation failed', description: 'Unable to record donation. Please try again.', variant: 'destructive' });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: 'Donation failed', description: data.error ?? 'Unable to record donation. Please try again.', variant: 'destructive' });
       } else {
         setDonated(true);
         setAmount('');
@@ -98,6 +103,10 @@ export default function GivePage() {
       toast({ title: 'Error', description: 'Something went wrong. Please try again.', variant: 'destructive' });
     }
     setCheckoutLoading(false);
+  }
+
+  if (!authLoading && user && profile?.status !== 'active') {
+    return <PendingApprovalScreen />;
   }
 
   return (
@@ -162,7 +171,6 @@ export default function GivePage() {
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                     <Input
                       type="number"
-                      min="1"
                       step="0.01"
                       placeholder="Other amount"
                       value={amount}

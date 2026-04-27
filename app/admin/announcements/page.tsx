@@ -27,7 +27,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 
 export default function AdminAnnouncementsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const [items, setItems] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,8 +38,15 @@ export default function AdminAnnouncementsPage() {
 
   async function load() {
     const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
-    setItems(data ?? []);
+    const all = data ?? [];
+    const today = new Date().toISOString().slice(0, 10);
+    const expired = all.filter((a) => a.expires_at && a.expires_at.slice(0, 10) < today);
+    const active = all.filter((a) => !a.expires_at || a.expires_at.slice(0, 10) >= today);
+    setItems(active);
     setLoading(false);
+    if (expired.length > 0) {
+      await Promise.all(expired.map((a) => adminWrite('announcements', 'delete', undefined, a.id)));
+    }
   }
 
   useEffect(() => { load(); }, []);
@@ -54,15 +61,23 @@ export default function AdminAnnouncementsPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const base = { title: form.title, body: form.body, priority: form.priority, expires_at: form.expires_at || null, is_published: form.is_published };
+    const base = { title: form.title, body: form.body, priority: form.priority as Announcement['priority'], expires_at: form.expires_at || null, is_published: form.is_published };
     const payload: Record<string, unknown> = editing
       ? base
-      : { ...base, created_by: user?.id ?? null, published_at: new Date().toISOString() };
+      : { ...base, created_by: user?.id ?? null, published_at: form.is_published ? new Date().toISOString() : null };
     const { error } = editing
       ? await adminWrite('announcements', 'update', payload, editing.id)
       : await adminWrite('announcements', 'insert', payload);
     if (error) { toast({ title: 'Error', description: error.message || 'Unable to save announcement.', variant: 'destructive' }); }
-    else { toast({ title: editing ? 'Announcement updated' : 'Announcement created' }); setOpen(false); load(); }
+    else {
+      toast({ title: editing ? 'Announcement updated' : 'Announcement created' });
+      setOpen(false);
+      if (editing) {
+        setItems((prev) => prev.map((item) => item.id === editing.id ? { ...item, ...base } as Announcement : item));
+      } else {
+        load();
+      }
+    }
     setSaving(false);
   }
 
@@ -91,7 +106,20 @@ export default function AdminAnnouncementsPage() {
           <DialogContent className="sm:max-w-lg bg-slate-900 border border-slate-700/50">
             <DialogHeader><DialogTitle className="text-white">{editing ? 'Edit Announcement' : 'New Announcement'}</DialogTitle></DialogHeader>
             <form onSubmit={handleSave} className="space-y-4">
-              <div><Label className="text-slate-200">Title *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <Label className="text-slate-200">Title *</Label>
+                  <span className={`text-xs ${form.title.length > 90 ? 'text-red-400' : 'text-slate-500'}`}>{100 - form.title.length} left</span>
+                </div>
+                <Input
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value.slice(0, 100) })}
+                  maxLength={100}
+                  required
+                  placeholder="Announcement title (max 100 characters)"
+                  className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
+                />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label className="text-slate-200">Priority</Label>
                   <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
@@ -99,7 +127,16 @@ export default function AdminAnnouncementsPage() {
                     <SelectContent className="bg-slate-800 border-slate-700">{['low', 'normal', 'high', 'urgent'].map((p) => <SelectItem key={p} value={p} className="text-white capitalize">{p}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div><Label className="text-slate-200">Expires On</Label><Input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
+                <div>
+                  <Label className="text-slate-200">Expires On</Label>
+                  <Input
+                    type="date"
+                    value={form.expires_at}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => setForm({ ...form, expires_at: e.target.value })}
+                    className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 [color-scheme:dark]"
+                  />
+                </div>
               </div>
               <div><Label className="text-slate-200">Message *</Label><Textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={4} required className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" /></div>
               <div className="flex items-center gap-3"><Switch checked={form.is_published} onCheckedChange={(c) => setForm({ ...form, is_published: c })} className="data-[state=unchecked]:bg-slate-700" /><Label className="font-normal text-slate-200">Publish immediately</Label></div>
@@ -113,38 +150,49 @@ export default function AdminAnnouncementsPage() {
 
       {loading ? <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-teal-400" /></div> : (
         <div className="bg-slate-900 rounded-xl border border-slate-700/50 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-700/50 bg-slate-900">
-                <th className="text-left px-5 py-3 font-semibold text-slate-400">Title</th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-400">Priority</th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-400">Status</th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-400 hidden md:table-cell">Published</th>
-                <th className="text-right px-5 py-3 font-semibold text-slate-400">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-10 text-slate-500"><Megaphone className="h-8 w-8 mx-auto mb-2 opacity-30" /><p>No announcements yet</p></td></tr>
-              ) : items.map((a) => (
-                <tr key={a.id} className="border-b border-slate-700/50 hover:bg-slate-800/50">
-                  <td className="px-5 py-3">
-                    <p className="font-medium text-white line-clamp-1">{a.title}</p>
-                    <p className="text-xs text-slate-500 line-clamp-1">{a.body}</p>
-                  </td>
-                  <td className="px-4 py-3"><Badge className={`text-xs capitalize ${PRIORITY_COLORS[a.priority]}`}>{a.priority}</Badge></td>
-                  <td className="px-4 py-3"><Badge className={a.is_published ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs' : 'bg-slate-700/50 text-slate-400 border border-slate-600/30 text-xs'}>{a.is_published ? 'Live' : 'Hidden'}</Badge></td>
-                  <td className="px-4 py-3 text-slate-500 text-xs hidden md:table-cell">{format(new Date(a.published_at), 'MMM d, yyyy')}</td>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button size="sm" variant="outline" className="h-7 text-xs bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700 hover:text-white" onClick={() => openEdit(a)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20" onClick={() => handleDelete(a.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col className="w-full" />
+                <col className="w-28 shrink-0" />
+                <col className="w-24 shrink-0" />
+                <col className="w-28 shrink-0 hidden md:table-column" />
+                <col className="w-24 shrink-0" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-slate-700/50 bg-slate-900">
+                  <th className="text-left px-5 py-3 font-semibold text-slate-400">Title</th>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-400">Priority</th>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-400">Status</th>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-400 hidden md:table-cell">Published</th>
+                  <th className="text-right px-5 py-3 font-semibold text-slate-400">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {items.length === 0 ? (
+                  <tr><td colSpan={5} className="text-center py-10 text-slate-500"><Megaphone className="h-8 w-8 mx-auto mb-2 opacity-30" /><p>No announcements yet</p></td></tr>
+                ) : items.map((a) => (
+                  <tr key={a.id} className="border-b border-slate-700/50 hover:bg-slate-800/50">
+                    <td className="px-5 py-3 min-w-0">
+                      <p className="font-medium text-white truncate break-all">{a.title}</p>
+                      <p className="text-xs text-slate-500 truncate break-all mt-0.5">{a.body}</p>
+                    </td>
+                    <td className="px-4 py-3 shrink-0"><Badge className={`text-xs capitalize ${PRIORITY_COLORS[a.priority]}`}>{a.priority}</Badge></td>
+                    <td className="px-4 py-3 shrink-0"><Badge className={a.is_published ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs' : 'bg-slate-700/50 text-slate-400 border border-slate-600/30 text-xs'}>{a.is_published ? 'Live' : 'Hidden'}</Badge></td>
+                    <td className="px-4 py-3 text-slate-500 text-xs hidden md:table-cell whitespace-nowrap">{a.published_at ? format(new Date(a.published_at), 'MMM d, yyyy') : '—'}</td>
+                    <td className="px-5 py-3 shrink-0">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button size="sm" variant="outline" className="h-7 text-xs bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700 hover:text-white" onClick={() => openEdit(a)}><Pencil className="h-3.5 w-3.5" /></Button>
+                        {profile?.role === 'admin' && (
+                          <Button size="sm" variant="outline" className="h-7 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20" onClick={() => handleDelete(a.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

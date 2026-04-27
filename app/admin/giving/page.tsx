@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { DollarSign, TrendingUp, Users, RefreshCw, Loader as Loader2, Plus, Trash2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { adminWrite } from '@/lib/admin-write';
 
 const FUND_BLANK = { name: '', description: '', goal_amount: '', is_active: true };
 
@@ -45,9 +46,13 @@ export default function AdminGivingPage() {
 
   async function handleFundSave(e: React.FormEvent) {
     e.preventDefault();
+    if (!fundForm.name.trim()) {
+      toast({ title: 'Fund name is required', variant: 'destructive' });
+      return;
+    }
     setFundSaving(true);
-    const { error } = await supabase.from('giving_funds').insert({
-      name: fundForm.name,
+    const { error } = await adminWrite('giving_funds', 'insert', {
+      name: fundForm.name.trim(),
       description: fundForm.description,
       goal_amount: fundForm.goal_amount ? parseFloat(fundForm.goal_amount) : null,
       is_active: fundForm.is_active,
@@ -59,7 +64,8 @@ export default function AdminGivingPage() {
 
   async function handleFundDelete(id: string) {
     if (!confirm('Delete this fund?')) return;
-    await supabase.from('giving_funds').delete().eq('id', id);
+    const { error } = await adminWrite('giving_funds', 'delete', undefined, id);
+    if (error) { toast({ title: 'Delete failed', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Fund deleted' });
     load();
   }

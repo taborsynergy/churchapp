@@ -83,6 +83,7 @@ export interface PrayerRequest {
   is_anonymous: boolean;
   status: PrayerStatus;
   category: PrayerCategory;
+  answer_note: string | null;
   created_at: string;
   users?: UserProfile;
 }
@@ -97,7 +98,6 @@ export interface Group {
   image_url: string;
   category: GroupCategory;
   max_members: number | null;
-  is_open: boolean;
   is_published: boolean;
   created_at: string;
   users?: UserProfile;

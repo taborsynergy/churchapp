@@ -12,6 +12,7 @@ interface DateTimePickerProps {
   value: string;
   onChange: (value: string) => void;
   disablePast?: boolean;
+  minDate?: Date;
   disabled?: boolean;
   placeholder?: string;
 }
@@ -20,6 +21,7 @@ export function DateTimePicker({
   value,
   onChange,
   disablePast = false,
+  minDate,
   disabled = false,
   placeholder = 'Pick a date & time',
 }: DateTimePickerProps) {
@@ -74,7 +76,13 @@ export function DateTimePicker({
           mode="single"
           selected={validDate}
           onSelect={handleDaySelect}
-          disabled={disablePast ? { before: today } : undefined}
+          disabled={
+            disablePast
+              ? { before: today }
+              : minDate
+                ? { before: startOfDay(minDate) }
+                : undefined
+          }
           initialFocus
           classNames={{
             months: 'flex flex-col',

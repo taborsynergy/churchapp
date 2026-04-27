@@ -62,6 +62,10 @@ export default function AdminEventsPage() {
       toast({ title: 'Invalid date', description: 'Event date cannot be in the past.', variant: 'destructive' });
       return;
     }
+    if (form.end_date && new Date(form.end_date) <= new Date(form.start_date)) {
+      toast({ title: 'Invalid end date', description: 'End date must be after the start date.', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     const payload: Record<string, unknown> = { ...form, capacity: form.capacity ? parseInt(form.capacity) : null, end_date: form.end_date || null, created_by: user?.id ?? null, event_date: form.start_date || null };
     const { error } = editing ? await adminWrite('events', 'update', payload, editing.id) : await adminWrite('events', 'insert', payload);
@@ -131,7 +135,14 @@ export default function AdminEventsPage() {
                   <div className="mt-1">
                     <DateTimePicker
                       value={form.start_date}
-                      onChange={(v) => setForm({ ...form, start_date: v })}
+                      onChange={(v) => {
+                        const updates: Partial<typeof form> = { start_date: v };
+                        // Clear end date if it's now before the new start
+                        if (form.end_date && new Date(form.end_date) <= new Date(v)) {
+                          updates.end_date = '';
+                        }
+                        setForm({ ...form, ...updates });
+                      }}
                       disablePast={!editing}
                       disabled={saving}
                       placeholder="Pick start date & time"
@@ -144,6 +155,7 @@ export default function AdminEventsPage() {
                     <DateTimePicker
                       value={form.end_date}
                       onChange={(v) => setForm({ ...form, end_date: v })}
+                      minDate={form.start_date ? new Date(form.start_date) : undefined}
                       disabled={saving}
                       placeholder="Pick end date & time"
                     />

@@ -1,56 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-function adminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
-
-async function getAuthUser(authHeader: string | null) {
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  const token = authHeader.slice(7);
-  const anon = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-  const { data: { user } } = await anon.auth.getUser(token);
-  return user ?? null;
-}
+import { requireAdminOrStaff, adminClient } from '@/lib/api-auth';
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getAuthUser(req.headers.get('authorization'));
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Verify caller is admin or staff via service role (bypasses RLS)
-    const svc = adminClient();
-    const { data: profile } = await svc
-      .from('church_users')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    const role = profile?.role;
-    if (!role || !['admin', 'staff'].includes(role)) {
-      // Fallback: try 'users' table (matches migration table name)
-      const { data: altProfile } = await svc
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (!altProfile?.role || !['admin', 'staff'].includes(altProfile.role)) {
-        return NextResponse.json(
-          { error: `Forbidden: role=${role ?? altProfile?.role ?? 'null'}` },
-          { status: 403 }
-        );
-      }
-    }
+    const auth = await requireAdminOrStaff(req.headers.get('authorization'));
+    if (!auth.ok) return auth.response;
 
     const body = await req.json();
     const { event_id, records } = body as {
@@ -65,21 +19,20 @@ export async function POST(req: NextRequest) {
     const rows = records.map((r) => ({
       event_id,
       user_id: r.user_id,
-      present: r.present,
+      present: Boolean(r.present),
       marked_at: new Date().toISOString(),
     }));
 
-    const { error: upsertError } = await svc
+    const { error } = await adminClient()
       .from('attendance')
       .upsert(rows, { onConflict: 'event_id,user_id' });
 
-    if (upsertError) {
-      return NextResponse.json({ error: upsertError.message }, { status: 400 });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
     return NextResponse.json({ success: true });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Internal server error';
-    return NextResponse.json({ error: msg }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

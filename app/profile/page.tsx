@@ -13,8 +13,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import type { Donation, Group, PrayerRequest, EventRsvp } from '@/lib/types';
-import { User, Mail, Phone, MapPin, Heart, Users, DollarSign, Loader as Loader2, Camera, ClipboardCheck, Calendar } from 'lucide-react';
+import type { Donation, Group, PrayerRequest } from '@/lib/types';
+
+type AttendanceRecord = {
+  id: string;
+  event_id: string;
+  user_id: string;
+  present: boolean;
+  marked_at: string;
+  events?: { title: string; start_date: string } | null;
+};
+
+type RsvpRecord = {
+  id: string;
+  event_id: string;
+  user_id: string;
+  status: string;
+  created_at: string;
+  events?: { title: string; start_date: string; location: string } | null;
+};
+import { User, Heart, Users, Loader as Loader2, Camera, ClipboardCheck, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ROLE_COLORS: Record<string, string> = {
@@ -32,10 +50,11 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [donations, setDonations] = useState<Donation[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
-  const [myRsvps, setMyRsvps] = useState<any[]>([]);
+  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
+  const [myRsvps, setMyRsvps] = useState<RsvpRecord[]>([]);
   const [myPrayers, setMyPrayers] = useState<PrayerRequest[]>([]);
   const [form, setForm] = useState({ full_name: '', phone: '', bio: '', address: '' });
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -43,10 +62,25 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!loading && user && !profile) {
+      // Guard against race: check if the row already exists before inserting.
+      // A missing profile row can happen briefly during OAuth callbacks.
       supabase
         .from('church_users')
-        .insert({ id: user.id, email: user.email ?? '', full_name: user.user_metadata?.full_name ?? '', role: 'pending', status: 'pending' })
-        .then(() => refreshProfile());
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle()
+        .then(({ data: existing }) => {
+          if (!existing) {
+            supabase.from('church_users').insert({
+              id: user.id,
+              email: user.email ?? '',
+              full_name: user.user_metadata?.full_name ?? '',
+              role: 'member',
+              status: 'pending',
+            });
+          }
+          refreshProfile();
+        });
     }
   }, [loading, user, profile]);
 
@@ -67,17 +101,47 @@ export default function ProfilePage() {
       supabase.from('prayer_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
     ]);
     setDonations(d ?? []);
-    setGroups((g ?? []).map((m: any) => m.groups));
-    setAttendanceHistory(att ?? []);
-    setMyRsvps(rsvpData ?? []);
+    setGroups((g ?? []).map((m: { groups: Group }) => m.groups).filter(Boolean));
+    setAttendanceHistory((att ?? []) as AttendanceRecord[]);
+    setMyRsvps((rsvpData ?? []) as RsvpRecord[]);
     setMyPrayers(prayerData ?? []);
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
+
+    const trimmedName = form.full_name.trim();
+    if (!trimmedName) {
+      setFormError('Full name is required.');
+      return;
+    }
+    if (trimmedName.length > 100) {
+      setFormError('Full name must be 100 characters or fewer.');
+      return;
+    }
+    if (form.bio.length > 500) {
+      setFormError('Bio must be 500 characters or fewer.');
+      return;
+    }
+    if (form.address.length > 200) {
+      setFormError('Address must be 200 characters or fewer.');
+      return;
+    }
+    setFormError('');
+
     setSaving(true);
-    const { error } = await supabase.from('church_users').update({ ...form, updated_at: new Date().toISOString() }).eq('id', user.id);
+    const { error } = await supabase
+      .from('church_users')
+      .update({
+        full_name: trimmedName,
+        phone: form.phone.trim().slice(0, 30),
+        bio: form.bio.trim().slice(0, 500),
+        address: form.address.trim().slice(0, 200),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id);
+
     if (error) {
       toast({ title: 'Error saving profile', description: 'Unable to save changes. Please try again.', variant: 'destructive' });
     } else {
@@ -210,6 +274,9 @@ export default function ProfilePage() {
                     <Label className="text-slate-300">Bio</Label>
                     <Textarea value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} placeholder="Share a bit about yourself..." rows={3} className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1" />
                   </div>
+                  {formError && (
+                    <p className="text-sm text-red-400">{formError}</p>
+                  )}
                   <Button type="submit" className="bg-teal-500 hover:bg-teal-400 text-white font-semibold" disabled={saving}>
                     {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                     Save Changes

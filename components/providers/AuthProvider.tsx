@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/lib/types';
@@ -28,18 +28,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastFetchedId = useRef<string | null>(null);
 
-  async function fetchProfile(userId: string) {
-    const { data } = await supabase
-      .from('church_users')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
+  async function fetchProfile(userId: string, force = false) {
+    if (!force && lastFetchedId.current === userId) return;
+    lastFetchedId.current = userId;
+    const { data } = await supabase.from('church_users').select('*').eq('id', userId).maybeSingle();
     setProfile(data);
   }
 
   async function refreshProfile() {
-    if (user) await fetchProfile(user.id);
+    if (user) await fetchProfile(user.id, true);
   }
 
   useEffect(() => {
@@ -53,15 +52,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        (async () => {
-          await fetchProfile(session.user.id);
-          setLoading(false);
-        })();
+        fetchProfile(session.user.id).finally(() => setLoading(false));
       } else {
+        lastFetchedId.current = null;
         setProfile(null);
         setLoading(false);
       }

@@ -11,13 +11,19 @@ import { useToast } from '@/hooks/use-toast';
 import { ClipboardList, Check, X, Loader as Loader2, Save } from 'lucide-react';
 import { format } from 'date-fns';
 
+function limitWords(text: string, max = 20): string {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= max) return text;
+  return words.slice(0, max).join(' ') + '…';
+}
+
 export default function AdminAttendancePage() {
   const { toast } = useToast();
   const [events, setEvents] = useState<any[]>([]);
   const [members, setMembers] = useState<UserProfile[]>([]);
+  const [rsvpMemberIds, setRsvpMemberIds] = useState<Set<string>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState('');
   const [attendance, setAttendance] = useState<Record<string, boolean>>({});
-  const [existing, setExisting] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -38,15 +44,14 @@ export default function AdminAttendancePage() {
   useEffect(() => {
     if (!selectedEvent) return;
     async function loadAttendance() {
-      const { data } = await supabase.from('attendance').select('*').eq('event_id', selectedEvent);
+      const [{ data: att }, { data: rsvps }] = await Promise.all([
+        supabase.from('attendance').select('*').eq('event_id', selectedEvent),
+        supabase.from('event_rsvps').select('user_id').eq('event_id', selectedEvent),
+      ]);
       const map: Record<string, boolean> = {};
-      const idMap: Record<string, string> = {};
-      (data ?? []).forEach((a: any) => {
-        map[a.user_id] = a.present;
-        idMap[a.user_id] = a.id;
-      });
+      (att ?? []).forEach((a: any) => { map[a.user_id] = a.present; });
       setAttendance(map);
-      setExisting(idMap);
+      setRsvpMemberIds(new Set((rsvps ?? []).map((r: any) => r.user_id)));
     }
     loadAttendance();
   }, [selectedEvent]);
@@ -55,9 +60,12 @@ export default function AdminAttendancePage() {
     setAttendance((prev) => ({ ...prev, [userId]: !prev[userId] }));
   }
 
+  const hasRsvps = rsvpMemberIds.size > 0;
+  const filteredMembers = hasRsvps ? members.filter((m) => rsvpMemberIds.has(m.id)) : members;
+
   function markAll(present: boolean) {
     const all: Record<string, boolean> = {};
-    members.forEach((m) => { all[m.id] = present; });
+    filteredMembers.forEach((m) => { all[m.id] = present; });
     setAttendance(all);
   }
 
@@ -72,7 +80,7 @@ export default function AdminAttendancePage() {
       return;
     }
 
-    const records = members.map((m) => ({ user_id: m.id, present: attendance[m.id] ?? false }));
+    const records = filteredMembers.map((m) => ({ user_id: m.id, present: attendance[m.id] ?? false }));
     const res = await fetch('/api/admin/attendance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -84,15 +92,11 @@ export default function AdminAttendancePage() {
       toast({ title: 'Error saving attendance', description: json.error || 'Unable to save attendance.', variant: 'destructive' });
     } else {
       toast({ title: 'Attendance saved!' });
-      const { data } = await supabase.from('attendance').select('*').eq('event_id', selectedEvent);
-      const idMap: Record<string, string> = {};
-      (data ?? []).forEach((a: any) => { idMap[a.user_id] = a.id; });
-      setExisting(idMap);
     }
     setSaving(false);
   }
 
-  const presentCount = members.filter((m) => attendance[m.id]).length;
+  const presentCount = filteredMembers.filter((m) => attendance[m.id]).length;
   const selectedEventData = events.find((e) => e.id === selectedEvent);
 
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-teal-400" /></div>;
@@ -110,10 +114,10 @@ export default function AdminAttendancePage() {
             <SelectTrigger className="bg-slate-800 border-slate-700 text-white w-full sm:w-96">
               <SelectValue placeholder="Select an event" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-w-96">
               {events.map((e) => (
-                <SelectItem key={e.id} value={e.id}>
-                  {e.title} — {format(new Date(e.start_date), 'MMM d, yyyy')}
+                <SelectItem key={e.id} value={e.id} className="whitespace-normal break-words">
+                  {limitWords(e.title)} — {format(new Date(e.start_date), 'MMM d, yyyy')}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -132,22 +136,26 @@ export default function AdminAttendancePage() {
       {selectedEventData && (
         <div className="mb-4 flex items-center gap-4">
           <Badge className="bg-teal-500/10 text-teal-400 border border-teal-500/20">
-            {presentCount} / {members.length} present
+            {presentCount} / {filteredMembers.length} present
           </Badge>
-          {members.length > 0 && (
+          {filteredMembers.length > 0 && (
             <span className="text-xs text-slate-500">
-              {Math.round((presentCount / members.length) * 100)}% attendance rate
+              {Math.round((presentCount / filteredMembers.length) * 100)}% attendance rate
             </span>
           )}
         </div>
       )}
 
-      {members.length === 0 ? (
+      {!selectedEvent ? (
         <div className="text-center py-20 text-slate-500">
           <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p>No active members found.</p>
+          <p>Select an event to view RSVPs.</p>
         </div>
       ) : (
+        <>
+        {!hasRsvps && (
+          <p className="text-xs text-slate-500 mb-3">No RSVPs for this event — showing all active members.</p>
+        )}
         <div className="bg-slate-900 rounded-xl border border-slate-700/50 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -157,20 +165,20 @@ export default function AdminAttendancePage() {
               </tr>
             </thead>
             <tbody>
-              {members.map((m) => {
+              {filteredMembers.map((m) => {
                 const initials = m.full_name?.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || '?';
                 const isPresent = attendance[m.id] ?? false;
                 return (
                   <tr key={m.id} className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors">
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
+                    <td className="px-5 py-3 max-w-xs">
+                      <div className="flex items-center gap-3 min-w-0">
                         <Avatar className="h-8 w-8 shrink-0">
                           <AvatarImage src={m.avatar_url} />
                           <AvatarFallback className="bg-teal-500/10 text-teal-400 text-xs font-semibold">{initials}</AvatarFallback>
                         </Avatar>
-                        <div>
-                          <p className="font-medium text-white">{m.full_name}</p>
-                          <p className="text-xs text-slate-500">{m.email}</p>
+                        <div className="min-w-0">
+                          <p className="font-medium text-white break-words">{m.full_name}</p>
+                          <p className="text-xs text-slate-500 break-all">{m.email}</p>
                         </div>
                       </div>
                     </td>
@@ -192,9 +200,10 @@ export default function AdminAttendancePage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
-      {members.length > 0 && (
+      {filteredMembers.length > 0 && (
         <div className="mt-6 flex justify-end">
           <Button className="bg-teal-500 hover:bg-teal-400 text-white font-semibold" onClick={handleSave} disabled={saving || !selectedEvent}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}

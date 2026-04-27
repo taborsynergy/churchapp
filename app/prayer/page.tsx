@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Heart, Plus, Loader as Loader2, User, Clock, Trash2, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { PendingApprovalScreen } from '@/components/ui/pending-approval';
 import { adminWrite } from '@/lib/admin-write';
 import { format } from 'date-fns';
 
@@ -36,7 +37,7 @@ function countWords(text: string) {
 }
 
 export default function PrayerPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [allRequests, setAllRequests] = useState<PrayerRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,15 +96,38 @@ export default function PrayerPage() {
       return;
     }
     setAnswering(true);
-    const { error } = await adminWrite('prayer_requests', 'update', { status: 'answered' }, answerTarget.id);
+    const note = answerNote.trim() || null;
+
+    // Try full update with answer_note
+    const { error } = await adminWrite('prayer_requests', 'update', { status: 'answered', answer_note: note }, answerTarget.id);
+
     if (error) {
-      toast({ title: 'Update failed', description: error.message, variant: 'destructive' });
+      // Column may not exist yet — fall back to status-only update
+      if (error.message?.includes('answer_note')) {
+        const { error: fallback } = await adminWrite('prayer_requests', 'update', { status: 'answered' }, answerTarget.id);
+        if (fallback) {
+          toast({ title: 'Update failed', description: fallback.message, variant: 'destructive' });
+          setAnswering(false);
+          return;
+        }
+        toast({
+          title: 'Marked as answered',
+          description: note ? 'Admin response could not be saved — the answer_note column is missing. Run the DB migration in Supabase SQL Editor.' : undefined,
+          variant: note ? 'destructive' : 'default',
+        });
+        setAllRequests((prev) => prev.map((r) => r.id === answerTarget.id ? { ...r, status: 'answered' } : r));
+      } else {
+        toast({ title: 'Update failed', description: error.message, variant: 'destructive' });
+        setAnswering(false);
+        return;
+      }
     } else {
       toast({ title: 'Marked as answered!', description: 'This prayer request has been marked as answered.' });
-      setAnswerOpen(false);
-      setAnswerTarget(null);
-      load();
+      setAllRequests((prev) => prev.map((r) => r.id === answerTarget.id ? { ...r, status: 'answered', answer_note: note } : r));
     }
+
+    setAnswerOpen(false);
+    setAnswerTarget(null);
     setAnswering(false);
   }
 
@@ -143,6 +167,10 @@ export default function PrayerPage() {
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+  }
+
+  if (!authLoading && user && profile?.status !== 'active') {
+    return <PendingApprovalScreen />;
   }
 
   return (
@@ -414,6 +442,18 @@ export default function PrayerPage() {
                             ? <><ChevronUp className="h-3 w-3" />Show less</>
                             : <><ChevronDown className="h-3 w-3" />Read more</>}
                         </button>
+                      )}
+
+                      {req.status === 'answered' && req.answer_note && (
+                        <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                          <p className="text-xs font-semibold text-emerald-400 mb-1 flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" />
+                            Admin Response
+                          </p>
+                          <p className="text-sm text-slate-300 leading-relaxed break-words whitespace-pre-wrap">
+                            {req.answer_note}
+                          </p>
+                        </div>
                       )}
                     </div>
 

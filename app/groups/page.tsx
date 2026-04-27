@@ -32,16 +32,21 @@ export default function GroupsPage() {
   const [category, setCategory] = useState('all');
 
   async function load() {
-    const [groupsRes, { data: m }] = await Promise.all([
-      fetch('/api/groups').then((r) => r.json()),
-      user ? supabase.from('group_members').select('group_id').eq('user_id', user.id) : Promise.resolve({ data: [] }),
-    ]);
-    setGroups(groupsRes.groups ?? []);
-    setMyGroupIds((m ?? []).map((x: any) => x.group_id));
+    try {
+      const [groupsResp, { data: m }] = await Promise.all([
+        fetch('/api/groups'),
+        user ? supabase.from('group_members').select('group_id').eq('user_id', user.id) : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const groupsJson = await groupsResp.json();
+      setGroups(groupsJson.groups ?? []);
+      setMyGroupIds((m ?? []).map((x: any) => x.group_id));
+    } catch {
+      setGroups([]);
+    }
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, [user]);
+  useEffect(() => { load(); }, [user?.id]);
 
   async function handleJoin(groupId: string) {
     if (!user || !profile) {
@@ -52,23 +57,23 @@ export default function GroupsPage() {
       toast({ title: 'Account pending', description: 'Your account must be approved.', variant: 'destructive' });
       return;
     }
-    const group = groups.find((g) => g.id === groupId);
-    const memberCount = (group?.group_members ?? []).length;
-    if (!myGroupIds.includes(groupId) && group?.max_members && memberCount >= group.max_members) {
-      toast({ title: 'Group is full', description: 'This group has reached its maximum capacity.', variant: 'destructive' });
-      return;
-    }
+    const isLeaving = myGroupIds.includes(groupId);
     setJoinLoading(groupId);
-    if (myGroupIds.includes(groupId)) {
-      await supabase.from('group_members').delete().eq('group_id', groupId).eq('user_id', user.id);
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch('/api/groups/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ group_id: groupId, action: isLeaving ? 'leave' : 'join' }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      toast({ title: json.error || 'Failed', variant: 'destructive' });
+    } else if (isLeaving) {
       setMyGroupIds(myGroupIds.filter((id) => id !== groupId));
       toast({ title: 'Left group' });
     } else {
-      const { error } = await supabase.from('group_members').insert({ group_id: groupId, user_id: user.id, role: 'member' });
-      if (!error) {
-        setMyGroupIds([...myGroupIds, groupId]);
-        toast({ title: 'You joined the group!', description: 'The group leader will be in touch soon.' });
-      }
+      setMyGroupIds([...myGroupIds, groupId]);
+      toast({ title: 'You joined the group!', description: 'The group leader will be in touch soon.' });
     }
     setJoinLoading(null);
     load();
@@ -160,9 +165,6 @@ export default function GroupsPage() {
                         <span>{memberCount} member{memberCount !== 1 ? 's' : ''}{group.max_members ? ` / ${group.max_members} max` : ''}</span>
                       </div>
                     </div>
-                    {(group as any).leader_name && (
-                      <p className="text-xs text-slate-500 mb-3">Led by <span className="font-medium text-slate-300">{(group as any).leader_name}</span></p>
-                    )}
                     <Button
                       size="sm"
                       className={`w-full ${isMember ? 'bg-green-600 hover:bg-red-600 text-white' : 'bg-teal-500 hover:bg-teal-400 text-white font-semibold'}`}
