@@ -56,8 +56,8 @@ export default function RegisterPage() {
       toast({ title: 'Password too short', description: 'Password must be at least 8 characters.', variant: 'destructive' });
       return;
     }
-    if (!/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-      toast({ title: 'Password too weak', description: 'Password must contain at least one uppercase letter and one number.', variant: 'destructive' });
+    if (!/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      toast({ title: 'Password too weak', description: 'Password must contain at least one uppercase letter, one number, and one special character.', variant: 'destructive' });
       return;
     }
     setLoading(true);
@@ -91,13 +91,10 @@ export default function RegisterPage() {
     // Only create church_users if Supabase gave us a confirmed session (email confirmation disabled).
     // If session is null, email confirmation is required — church_users will be created by /auth/callback.
     if (data.session) {
-      await supabase.from('church_users').insert({
-        id: data.user.id,
-        email,
-        full_name: fullName.trim(),
-        role: 'pending',
-        status: 'pending',
-      });
+      await supabase.from('church_users').upsert(
+        { id: data.user.id, email, full_name: fullName.trim(), role: 'pending', status: 'pending' },
+        { onConflict: 'id', ignoreDuplicates: true }
+      );
     }
 
     setSuccessEmail(email);
@@ -205,7 +202,7 @@ export default function RegisterPage() {
                     id="password"
                     type={showPass ? 'text' : 'password'}
                     autoComplete="new-password"
-                    placeholder="Min 8 chars, 1 uppercase, 1 number"
+                    placeholder="Min 8 chars, uppercase, number, special char"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required

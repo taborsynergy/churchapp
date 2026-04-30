@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin, adminClient } from '@/lib/api-auth';
-import { checkRateLimit, rateLimitHeaders } from '@/lib/security/rate-limiter';
+import { checkRateLimitStrict, rateLimitHeaders } from '@/lib/security/rate-limiter';
 
 const VALID_ROLES = ['member', 'staff', 'admin', 'pending'] as const;
 const VALID_STATUSES = ['active', 'pending', 'suspended'] as const;
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req.headers.get('authorization'));
   if (!auth.ok) return auth.response;
 
-  const rl = await checkRateLimit(`create-user:${auth.userId}`, RATE_LIMIT_MAX);
+  const rl = await checkRateLimitStrict(`create-user:${auth.userId}`, RATE_LIMIT_MAX);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'Too many requests. Please wait before creating more users.' },
@@ -47,6 +47,12 @@ export async function POST(req: NextRequest) {
   }
   if (!/[0-9]/.test(safePassword)) {
     return NextResponse.json({ error: 'Password must contain at least one number' }, { status: 400 });
+  }
+  if (!/[^A-Za-z0-9]/.test(safePassword)) {
+    return NextResponse.json(
+      { error: 'Password must contain at least one special character' },
+      { status: 400 }
+    );
   }
 
   const safeRole = VALID_ROLES.includes(body.role as any) ? (body.role as string) : 'member';

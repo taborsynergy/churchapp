@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { DollarSign, TrendingUp, Users, RefreshCw, Loader as Loader2, Plus, Trash2 } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { adminWrite } from '@/lib/admin-write';
@@ -31,6 +32,7 @@ export default function AdminGivingPage() {
   const [fundOpen, setFundOpen] = useState(false);
   const [fundSaving, setFundSaving] = useState(false);
   const [fundForm, setFundForm] = useState<typeof FUND_BLANK>({ ...FUND_BLANK });
+  const [confirmDlg, setConfirmDlg] = useState<{ open: boolean; description: string; onConfirm: () => void }>({ open: false, description: '', onConfirm: () => {} });
 
   async function load() {
     const [{ data: d }, { data: f }] = await Promise.all([
@@ -63,11 +65,16 @@ export default function AdminGivingPage() {
   }
 
   async function handleFundDelete(id: string) {
-    if (!confirm('Delete this fund?')) return;
-    const { error } = await adminWrite('giving_funds', 'delete', undefined, id);
-    if (error) { toast({ title: 'Delete failed', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Fund deleted' });
-    load();
+    setConfirmDlg({
+      open: true,
+      description: 'Delete this fund? This action cannot be undone.',
+      onConfirm: async () => {
+        const { error } = await adminWrite('giving_funds', 'delete', undefined, id);
+        if (error) { toast({ title: 'Delete failed', description: error.message, variant: 'destructive' }); }
+        else { toast({ title: 'Fund deleted' }); load(); }
+        setConfirmDlg((c) => ({ ...c, open: false }));
+      },
+    });
   }
 
   const now = new Date();
@@ -279,6 +286,13 @@ export default function AdminGivingPage() {
           </div>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={confirmDlg.open}
+        description={confirmDlg.description}
+        onConfirm={confirmDlg.onConfirm}
+        onCancel={() => setConfirmDlg((c) => ({ ...c, open: false }))}
+      />
     </div>
   );
 }

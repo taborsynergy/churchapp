@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { adminWrite } from '@/lib/admin-write';
 import { Plus, Trash2, Pencil, Loader as Loader2, Megaphone } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { format } from 'date-fns';
 
 const BLANK = { title: '', body: '', priority: 'normal', expires_at: '', is_published: true };
@@ -35,6 +36,7 @@ export default function AdminAnnouncementsPage() {
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Announcement | null>(null);
   const [form, setForm] = useState<typeof BLANK>({ ...BLANK });
+  const [confirmDlg, setConfirmDlg] = useState<{ open: boolean; description: string; onConfirm: () => void }>({ open: false, description: '', onConfirm: () => {} });
 
   async function load() {
     const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
@@ -82,14 +84,20 @@ export default function AdminAnnouncementsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this announcement?')) return;
-    const { error } = await adminWrite('announcements', 'delete', undefined, id);
-    if (error) {
-      toast({ title: 'Delete failed', description: error.message || 'Unable to delete announcement.', variant: 'destructive' });
-    } else {
-      toast({ title: 'Announcement deleted' });
-      load();
-    }
+    setConfirmDlg({
+      open: true,
+      description: 'Delete this announcement? This action cannot be undone.',
+      onConfirm: async () => {
+        const { error } = await adminWrite('announcements', 'delete', undefined, id);
+        if (error) {
+          toast({ title: 'Delete failed', description: error.message || 'Unable to delete announcement.', variant: 'destructive' });
+        } else {
+          toast({ title: 'Announcement deleted' });
+          load();
+        }
+        setConfirmDlg((c) => ({ ...c, open: false }));
+      },
+    });
   }
 
   return (
@@ -195,6 +203,13 @@ export default function AdminAnnouncementsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDlg.open}
+        description={confirmDlg.description}
+        onConfirm={confirmDlg.onConfirm}
+        onCancel={() => setConfirmDlg((c) => ({ ...c, open: false }))}
+      />
     </div>
   );
 }

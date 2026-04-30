@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Pencil, Loader as Loader2, BookOpen, ListVideo, Upload, X } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { adminWrite } from '@/lib/admin-write';
 
@@ -45,6 +46,7 @@ export default function AdminSermonsPage() {
   const [seriesForm, setSeriesForm] = useState<typeof SERIES_BLANK>({ ...SERIES_BLANK });
   const [seriesUrlError, setSeriesUrlError] = useState('');
   const [uploadingThumb, setUploadingThumb] = useState(false);
+  const [confirmDlg, setConfirmDlg] = useState<{ open: boolean; description: string; onConfirm: () => void }>({ open: false, description: '', onConfirm: () => {} });
 
   function validateUrl(field: string, value: string, setter: (e: Record<string, string>) => void, current: Record<string, string>) {
     if (!value.trim()) {
@@ -125,14 +127,16 @@ export default function AdminSermonsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this sermon?')) return;
-    const { error } = await adminWrite('sermons', 'delete', undefined, id);
-    if (error) {
-      toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Sermon deleted' });
-      load();
-    }
+    setConfirmDlg({
+      open: true,
+      description: 'Delete this sermon? This action cannot be undone.',
+      onConfirm: async () => {
+        const { error } = await adminWrite('sermons', 'delete', undefined, id);
+        if (error) { toast({ title: 'Delete failed', description: error.message, variant: 'destructive' }); }
+        else { toast({ title: 'Sermon deleted' }); load(); }
+        setConfirmDlg((c) => ({ ...c, open: false }));
+      },
+    });
   }
 
   async function handleSeriesSave(e: React.FormEvent) {
@@ -149,14 +153,16 @@ export default function AdminSermonsPage() {
   }
 
   async function handleSeriesDelete(id: string) {
-    if (!confirm('Delete this series? Sermons will not be deleted.')) return;
-    const { error } = await adminWrite('sermon_series', 'delete', undefined, id);
-    if (error) {
-      toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Series deleted' });
-      load();
-    }
+    setConfirmDlg({
+      open: true,
+      description: 'Delete this series? Sermons in this series will not be deleted.',
+      onConfirm: async () => {
+        const { error } = await adminWrite('sermon_series', 'delete', undefined, id);
+        if (error) { toast({ title: 'Delete failed', description: error.message, variant: 'destructive' }); }
+        else { toast({ title: 'Series deleted' }); load(); }
+        setConfirmDlg((c) => ({ ...c, open: false }));
+      },
+    });
   }
 
   return (
@@ -347,6 +353,13 @@ export default function AdminSermonsPage() {
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDlg.open}
+        description={confirmDlg.description}
+        onConfirm={confirmDlg.onConfirm}
+        onCancel={() => setConfirmDlg((c) => ({ ...c, open: false }))}
+      />
     </div>
   );
 }

@@ -20,8 +20,23 @@ const URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ANON_KEY;
 
-const anon: SupabaseClient = createClient(URL, ANON_KEY);
-const service: SupabaseClient = createClient(URL, SERVICE_KEY, {
+// Database integration tests only run when a dedicated test DB is configured
+// (TEST_DB=true in the environment), to avoid hitting the development database
+// with write operations and seed-data assertions.
+const hasCredentials = Boolean(URL && ANON_KEY);
+const isTestDbEnabled = Boolean(process.env.TEST_DB === 'true' && hasCredentials);
+
+// Conditionally skip all database describe blocks when not in test-DB mode.
+const dbDescribe = isTestDbEnabled ? describe : describe.skip;
+
+// Use placeholder URLs when env vars are absent so createClient doesn't throw
+// at import time. All tests that need real connectivity are guarded by hasCredentials.
+const safeUrl = URL || 'https://placeholder.supabase.co';
+const safeAnonKey = ANON_KEY || 'placeholder-anon-key';
+const safeServiceKey = SERVICE_KEY || safeAnonKey;
+
+const anon: SupabaseClient = createClient(safeUrl, safeAnonKey);
+const service: SupabaseClient = createClient(safeUrl, safeServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
@@ -42,7 +57,7 @@ const EXPECTED_TABLES = [
 ];
 
 // ─── TC-DB-001: Environment ───────────────────────────────────────────────────
-describe('TC-DB-001: Environment configuration', () => {
+dbDescribe('TC-DB-001: Environment configuration', () => {
   test('NEXT_PUBLIC_SUPABASE_URL is set and valid', () => {
     expect(URL).toBeTruthy();
     expect(URL).toMatch(/^https?:\/\//);
@@ -55,7 +70,7 @@ describe('TC-DB-001: Environment configuration', () => {
 });
 
 // ─── TC-DB-002: Database is reachable ────────────────────────────────────────
-describe('TC-DB-002: Database connectivity', () => {
+dbDescribe('TC-DB-002: Database connectivity', () => {
   test('can connect and query giving_funds', async () => {
     const { error } = await anon.from('giving_funds').select('id').limit(1);
     expect(error).toBeNull();
@@ -77,7 +92,7 @@ describe('TC-DB-002: Database connectivity', () => {
 });
 
 // ─── TC-DB-003: Public read — sermon_series ───────────────────────────────────
-describe('TC-DB-003: sermon_series — public read access', () => {
+dbDescribe('TC-DB-003: sermon_series — public read access', () => {
   test('anon can read sermon_series', async () => {
     const { data, error } = await anon.from('sermon_series').select('id, title, is_active');
     expect(error).toBeNull();
@@ -109,7 +124,7 @@ describe('TC-DB-003: sermon_series — public read access', () => {
 });
 
 // ─── TC-DB-004: Public read — announcements ───────────────────────────────────
-describe('TC-DB-004: announcements — public read access', () => {
+dbDescribe('TC-DB-004: announcements — public read access', () => {
   test('anon can read published announcements', async () => {
     const { data, error } = await anon
       .from('announcements')
@@ -163,7 +178,7 @@ describe('TC-DB-004: announcements — public read access', () => {
 });
 
 // ─── TC-DB-005: Public read — giving_funds ────────────────────────────────────
-describe('TC-DB-005: giving_funds — public read & seed data', () => {
+dbDescribe('TC-DB-005: giving_funds — public read & seed data', () => {
   test('anon can read active giving funds', async () => {
     const { data, error } = await anon
       .from('giving_funds')
@@ -224,7 +239,7 @@ describe('TC-DB-005: giving_funds — public read & seed data', () => {
 });
 
 // ─── TC-DB-006: Public read — sermons ────────────────────────────────────────
-describe('TC-DB-006: sermons — public read (published only)', () => {
+dbDescribe('TC-DB-006: sermons — public read (published only)', () => {
   test('anon can query sermons', async () => {
     const { data, error } = await anon
       .from('sermons')
@@ -253,7 +268,7 @@ describe('TC-DB-006: sermons — public read (published only)', () => {
 });
 
 // ─── TC-DB-007: Public read — events ─────────────────────────────────────────
-describe('TC-DB-007: events — public read', () => {
+dbDescribe('TC-DB-007: events — public read', () => {
   test('anon can query published events', async () => {
     const { data, error } = await anon
       .from('events')
@@ -288,7 +303,7 @@ describe('TC-DB-007: events — public read', () => {
 });
 
 // ─── TC-DB-008: Public read — groups ─────────────────────────────────────────
-describe('TC-DB-008: groups — public read', () => {
+dbDescribe('TC-DB-008: groups — public read', () => {
   test('anon can query published groups', async () => {
     const { data, error } = await anon
       .from('groups')
@@ -311,7 +326,7 @@ describe('TC-DB-008: groups — public read', () => {
 });
 
 // ─── TC-DB-009: RLS — anon cannot write to protected tables ──────────────────
-describe('TC-DB-009: RLS blocks unauthenticated writes', () => {
+dbDescribe('TC-DB-009: RLS blocks unauthenticated writes', () => {
   test('anon cannot insert into sermons', async () => {
     const { error } = await anon
       .from('sermons')
@@ -365,7 +380,7 @@ describe('TC-DB-009: RLS blocks unauthenticated writes', () => {
 });
 
 // ─── TC-DB-010: RLS — anon cannot read private tables ────────────────────────
-describe('TC-DB-010: RLS blocks unauthenticated reads on private tables', () => {
+dbDescribe('TC-DB-010: RLS blocks unauthenticated reads on private tables', () => {
   test('anon gets empty result or error reading users', async () => {
     const { data, error } = await anon.from('users').select('id, email');
     expect(error !== null || (data ?? []).length === 0).toBe(true);
@@ -393,7 +408,7 @@ describe('TC-DB-010: RLS blocks unauthenticated reads on private tables', () => 
 });
 
 // ─── TC-DB-011: Pagination and ordering ──────────────────────────────────────
-describe('TC-DB-011: Pagination and result ordering', () => {
+dbDescribe('TC-DB-011: Pagination and result ordering', () => {
   test('giving_funds supports range pagination', async () => {
     const { data, error } = await anon
       .from('giving_funds')
@@ -438,7 +453,7 @@ describe('TC-DB-011: Pagination and result ordering', () => {
 });
 
 // ─── TC-DB-012: Schema shape validation ──────────────────────────────────────
-describe('TC-DB-012: Schema shape — required fields present on returned rows', () => {
+dbDescribe('TC-DB-012: Schema shape — required fields present on returned rows', () => {
   test('giving_funds rows have id, name, is_active, created_at', async () => {
     const { data } = await anon.from('giving_funds').select('*').limit(3);
     (data ?? []).forEach((r: any) => {
@@ -475,7 +490,7 @@ describe('TC-DB-012: Schema shape — required fields present on returned rows',
 });
 
 // ─── TC-DB-013: Service role — full read access ───────────────────────────────
-describe('TC-DB-013: Service role read access to all tables', () => {
+dbDescribe('TC-DB-013: Service role read access to all tables', () => {
   EXPECTED_TABLES.forEach((table) => {
     test(`service role can SELECT from "${table}"`, async () => {
       if (!hasServiceKey) {
@@ -489,7 +504,7 @@ describe('TC-DB-013: Service role read access to all tables', () => {
 });
 
 // ─── TC-DB-014: Service role — constraint enforcement ────────────────────────
-describe('TC-DB-014: Column constraint enforcement (requires service role)', () => {
+dbDescribe('TC-DB-014: Column constraint enforcement (requires service role)', () => {
   test('sermons: missing title is rejected', async () => {
     if (!hasServiceKey) return;
     const { error } = await service.from('sermons').insert({ pastor: 'No Title' });
@@ -704,7 +719,7 @@ describe('TC-DB-014: Column constraint enforcement (requires service role)', () 
 });
 
 // ─── TC-DB-015: Foreign key integrity ────────────────────────────────────────
-describe('TC-DB-015: Foreign key constraint enforcement (requires service role)', () => {
+dbDescribe('TC-DB-015: Foreign key constraint enforcement (requires service role)', () => {
   test('sermon with non-existent series_id is rejected', async () => {
     if (!hasServiceKey) return;
     const { error } = await service.from('sermons').insert({
@@ -744,7 +759,7 @@ describe('TC-DB-015: Foreign key constraint enforcement (requires service role)'
 });
 
 // ─── TC-DB-016: Full CRUD round-trip — giving_funds ──────────────────────────
-describe('TC-DB-016: CRUD round-trip on giving_funds (requires service role)', () => {
+dbDescribe('TC-DB-016: CRUD round-trip on giving_funds (requires service role)', () => {
   const fundName = `CRUD Test Fund ${Date.now()}`;
   let fundId: string;
 
@@ -798,7 +813,7 @@ describe('TC-DB-016: CRUD round-trip on giving_funds (requires service role)', (
 });
 
 // ─── TC-DB-017: Sermon publish lifecycle ─────────────────────────────────────
-describe('TC-DB-017: Sermon publish/unpublish lifecycle (requires service role)', () => {
+dbDescribe('TC-DB-017: Sermon publish/unpublish lifecycle (requires service role)', () => {
   const title = `Lifecycle Sermon ${Date.now()}`;
   let sermonId: string;
 
@@ -857,7 +872,7 @@ describe('TC-DB-017: Sermon publish/unpublish lifecycle (requires service role)'
 });
 
 // ─── TC-DB-018: Announcement visibility lifecycle ────────────────────────────
-describe('TC-DB-018: Announcement visibility lifecycle (requires service role)', () => {
+dbDescribe('TC-DB-018: Announcement visibility lifecycle (requires service role)', () => {
   const annTitle = `Visibility Test ${Date.now()}`;
   let annId: string;
 

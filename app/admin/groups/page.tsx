@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Pencil, Loader as Loader2, Users, UserPlus, X, ShieldOff, ShieldCheck, Crown } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { adminWrite } from '@/lib/admin-write';
 
 const CATEGORIES = ['general', 'bible_study', 'youth', 'women', 'men', 'couples', 'seniors', 'outreach'];
@@ -37,6 +38,7 @@ export default function AdminGroupsPage() {
   const [membersLoading, setMembersLoading] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState('');
   const [addingMember, setAddingMember] = useState(false);
+  const [confirmDlg, setConfirmDlg] = useState<{ open: boolean; description: string; onConfirm: () => void }>({ open: false, description: '', onConfirm: () => {} });
 
   async function load() {
     try {
@@ -141,17 +143,22 @@ export default function AdminGroupsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this group? All members will be removed.')) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token ?? '';
-    const res = await fetch(`/api/admin/groups?id=${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
+    setConfirmDlg({
+      open: true,
+      description: 'Delete this group? All members will be removed. This action cannot be undone.',
+      onConfirm: async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token ?? '';
+        const res = await fetch(`/api/admin/groups?id=${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (!res.ok) { toast({ title: 'Delete failed', description: json.error, variant: 'destructive' }); }
+        else { toast({ title: 'Group deleted' }); load(); }
+        setConfirmDlg((c) => ({ ...c, open: false }));
+      },
     });
-    const json = await res.json();
-    if (!res.ok) { toast({ title: 'Delete failed', description: json.error, variant: 'destructive' }); return; }
-    toast({ title: 'Group deleted' });
-    load();
   }
 
   async function openGroupMembers(g: any) {
@@ -181,12 +188,20 @@ export default function AdminGroupsPage() {
   async function handleSuspendUser(userId: string, name: string, currentStatus: string) {
     const isSuspended = currentStatus === 'suspended';
     const action = isSuspended ? 'Reactivate' : 'Suspend';
-    if (!confirm(`${action} ${name}'s account?${!isSuspended ? ' They will lose access to the app.' : ''}`)) return;
-    const newStatus = isSuspended ? 'active' : 'suspended';
-    const { error } = await adminWrite('church_users', 'update', { status: newStatus }, userId);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: isSuspended ? 'Account reactivated' : 'Account suspended' });
-    if (membersGroup) await openGroupMembers(membersGroup);
+    setConfirmDlg({
+      open: true,
+      description: `${action} ${name}'s account?${!isSuspended ? ' They will lose access to the app.' : ''}`,
+      onConfirm: async () => {
+        const newStatus = isSuspended ? 'active' : 'suspended';
+        const { error } = await adminWrite('church_users', 'update', { status: newStatus }, userId);
+        if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); }
+        else {
+          toast({ title: isSuspended ? 'Account reactivated' : 'Account suspended' });
+          if (membersGroup) await openGroupMembers(membersGroup);
+        }
+        setConfirmDlg((c) => ({ ...c, open: false }));
+      },
+    });
   }
 
   async function handleAddGroupMember() {
@@ -450,6 +465,13 @@ export default function AdminGroupsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDlg.open}
+        description={confirmDlg.description}
+        onConfirm={confirmDlg.onConfirm}
+        onCancel={() => setConfirmDlg((c) => ({ ...c, open: false }))}
+      />
     </div>
   );
 }

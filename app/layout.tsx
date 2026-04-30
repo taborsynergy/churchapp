@@ -8,9 +8,9 @@ import { Toaster } from '@/components/ui/toaster';
 
 const inter = Inter({ subsets: ['latin'] });
 
-const SITE_URL = 'https://gracecommunity.church';
-const SITE_NAME = 'Grace Community Church';
-const SITE_DESCRIPTION = 'A community of faith, hope, and love — rooted in the Gospel, reaching our neighbors, and glorifying God together.';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gracecommunity.church';
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'Grace Community Church';
+const SITE_DESCRIPTION = process.env.NEXT_PUBLIC_SITE_DESCRIPTION ?? 'A community of faith, hope, and love — rooted in the Gospel, reaching our neighbors, and glorifying God together.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

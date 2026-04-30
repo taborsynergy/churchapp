@@ -35,8 +35,8 @@ export default function ResetPasswordPage() {
       toast({ title: 'Password too short', description: 'Minimum 8 characters.', variant: 'destructive' });
       return;
     }
-    if (!/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-      toast({ title: 'Password too weak', description: 'Must contain at least one uppercase letter and one number.', variant: 'destructive' });
+    if (!/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      toast({ title: 'Password too weak', description: 'Must contain at least one uppercase letter, one number, and one special character.', variant: 'destructive' });
       return;
     }
     setLoading(true);

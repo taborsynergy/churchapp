@@ -21,26 +21,28 @@ export default function AuthCallbackPage() {
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
         setMessage('Setting up your account…');
 
-        // Ensure a church_users record exists (handles first-time Google/OAuth users)
-        const { data: existing } = await supabase
-          .from('church_users')
-          .select('id, role')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        if (!existing) {
-          const meta = session.user.user_metadata ?? {};
-          await supabase.from('church_users').insert({
+        // Upsert the church_users record — safe under concurrent sessions/tabs.
+        // ignoreDuplicates keeps existing data intact if the row already exists.
+        const meta = session.user.user_metadata ?? {};
+        await supabase.from('church_users').upsert(
+          {
             id: session.user.id,
             email: session.user.email ?? '',
             full_name: meta.full_name ?? meta.name ?? '',
             avatar_url: meta.avatar_url ?? meta.picture ?? '',
             role: 'pending',
             status: 'pending',
-          });
-        }
+          },
+          { onConflict: 'id', ignoreDuplicates: true }
+        );
 
-        const role = existing?.role;
+        const { data: profile } = await supabase
+          .from('church_users')
+          .select('role')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        const role = profile?.role;
         if (role === 'admin' || role === 'staff') {
           router.replace('/admin');
         } else {

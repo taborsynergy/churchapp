@@ -90,28 +90,26 @@ describe('Security: Payment Security', () => {
   });
 
   // ─── 3. Donation Amount Tampering ─────────────────────────────────────────
+  // validateDonationAmount uses dollar amounts (not cents).
+  // Min: $1.00 | Max: $100,000.00 | Accepts decimals (e.g. $9.99)
   describe('Donation Amount Tampering Prevention', () => {
-    it('should reject amounts below the $1 minimum (100 cents)', () => {
+    it('should reject amounts below the $1 minimum', () => {
       expect(validateDonationAmount(0)).toBe(false);
-      expect(validateDonationAmount(-100)).toBe(false);
-      expect(validateDonationAmount(50)).toBe(false);
-      expect(validateDonationAmount(99)).toBe(false);
+      expect(validateDonationAmount(-1)).toBe(false);
+      expect(validateDonationAmount(0.50)).toBe(false);
+      expect(validateDonationAmount(0.99)).toBe(false);
     });
 
-    it('should reject amounts above the $100,000 maximum (10000000 cents)', () => {
-      expect(validateDonationAmount(10_000_001)).toBe(false);
-      expect(validateDonationAmount(99_999_999)).toBe(false);
+    it('should reject amounts above the $100,000 maximum', () => {
+      expect(validateDonationAmount(100_001)).toBe(false);
+      expect(validateDonationAmount(999_999)).toBe(false);
     });
 
     it('should accept valid amounts within the allowed range', () => {
-      expect(validateDonationAmount(100)).toBe(true);
-      expect(validateDonationAmount(5000)).toBe(true);
-      expect(validateDonationAmount(10_000_000)).toBe(true);
-    });
-
-    it('should reject non-integer amounts (e.g., floating point)', () => {
-      expect(validateDonationAmount(9.99)).toBe(false);
-      expect(validateDonationAmount(100.5)).toBe(false);
+      expect(validateDonationAmount(1)).toBe(true);
+      expect(validateDonationAmount(50)).toBe(true);
+      expect(validateDonationAmount(9.99)).toBe(true);
+      expect(validateDonationAmount(100_000)).toBe(true);
     });
 
     it('should reject non-numeric amount values', () => {

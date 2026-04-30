@@ -1,13 +1,26 @@
+import 'server-only';
+
 /**
- * Server-side rate limiter using Supabase as the distributed store.
- * Works correctly across serverless cold starts and multiple instances.
+ * Distributed rate limiter using Supabase as the store.
+ * Safe for serverless environments — works across cold starts and instances.
  *
- * Falls back gracefully if the rate_limits table doesn't exist yet,
- * so it never blocks production if the migration is pending.
+ * Fail strategy:
+ *   - `checkRateLimit` (general): fails OPEN so legitimate users are never blocked
+ *     by infrastructure issues.
+ *   - `checkRateLimitStrict` (admin/financial): fails CLOSED — better to reject
+ *     a legitimate request than allow unlimited abuse when the store is down.
  */
 import { createClient } from '@supabase/supabase-js';
+import { InProcessRateLimiter } from './rate-limiter-in-process';
+
+export { InProcessRateLimiter };
+// Backward-compat alias used by existing tests
+export { InProcessRateLimiter as RateLimiter };
 
 const WINDOW_MS = 60_000; // 1-minute sliding window
+
+// In-memory fallback for when the DB store is unavailable
+const _fallback = new InProcessRateLimiter({ maxRequests: 10, windowMs: WINDOW_MS });
 
 function svc() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -22,28 +35,25 @@ export interface RateLimitResult {
   resetAt: number;
 }
 
-/**
- * Checks and increments the rate limit counter for a given key.
- * @param key      Identifier string (e.g. IP address, user ID)
- * @param maxRequests  Max allowed requests in the window
- * @param windowMs     Window duration in milliseconds (default: 60s)
- */
-export async function checkRateLimit(
+async function _check(
   key: string,
   maxRequests: number,
-  windowMs = WINDOW_MS
+  windowMs: number,
+  failOpen: boolean
 ): Promise<RateLimitResult> {
   const db = svc();
+  const now = Date.now();
+
   if (!db) {
-    // If Supabase isn't configured, allow all requests (fail-open for availability)
-    return { allowed: true, remaining: maxRequests, resetAt: Date.now() + windowMs };
+    // No DB configured — use in-process fallback with conservative limit
+    _fallback.record(key);
+    const allowed = !_fallback.isBlocked(key);
+    return { allowed, remaining: allowed ? maxRequests - 1 : 0, resetAt: now + windowMs };
   }
 
-  const now = Date.now();
   const windowStart = now - windowMs;
 
   try {
-    // Count requests in the current window
     const { count } = await db
       .from('rate_limits')
       .select('*', { count: 'exact', head: true })
@@ -53,14 +63,9 @@ export async function checkRateLimit(
     const currentCount = count ?? 0;
 
     if (currentCount >= maxRequests) {
-      return {
-        allowed: false,
-        remaining: 0,
-        resetAt: now + windowMs,
-      };
+      return { allowed: false, remaining: 0, resetAt: now + windowMs };
     }
 
-    // Record this request
     await db.from('rate_limits').insert({ key, requested_at: new Date(now).toISOString() });
 
     // Prune old entries asynchronously (fire and forget)
@@ -70,19 +75,45 @@ export async function checkRateLimit(
       .eq('key', key)
       .then(() => {});
 
-    return {
-      allowed: true,
-      remaining: maxRequests - currentCount - 1,
-      resetAt: now + windowMs,
-    };
+    return { allowed: true, remaining: maxRequests - currentCount - 1, resetAt: now + windowMs };
   } catch {
-    // Fail open — never block legitimate users due to rate limit infrastructure issues
-    return { allowed: true, remaining: maxRequests, resetAt: now + windowMs };
+    if (failOpen) {
+      // Non-critical endpoint — allow through, log and move on
+      console.warn('[rate-limiter] DB error; failing open for key:', key);
+      return { allowed: true, remaining: maxRequests, resetAt: now + windowMs };
+    }
+    // Critical endpoint (admin, financial) — fail closed
+    console.error('[rate-limiter] DB error; failing closed for key:', key);
+    return { allowed: false, remaining: 0, resetAt: now + windowMs };
   }
 }
 
 /**
- * Returns a NextResponse-compatible rate limit headers object.
+ * Standard rate limiter — fails OPEN on infrastructure errors.
+ * Use for general-purpose endpoints where availability > security.
+ */
+export async function checkRateLimit(
+  key: string,
+  maxRequests: number,
+  windowMs = WINDOW_MS
+): Promise<RateLimitResult> {
+  return _check(key, maxRequests, windowMs, true);
+}
+
+/**
+ * Strict rate limiter — fails CLOSED on infrastructure errors.
+ * Use for admin, financial, and auth-sensitive endpoints.
+ */
+export async function checkRateLimitStrict(
+  key: string,
+  maxRequests: number,
+  windowMs = WINDOW_MS
+): Promise<RateLimitResult> {
+  return _check(key, maxRequests, windowMs, false);
+}
+
+/**
+ * Returns standard rate-limit response headers.
  */
 export function rateLimitHeaders(result: RateLimitResult): Record<string, string> {
   return {
@@ -90,70 +121,3 @@ export function rateLimitHeaders(result: RateLimitResult): Record<string, string
     'X-RateLimit-Reset': String(Math.floor(result.resetAt / 1000)),
   };
 }
-
-// ─── Legacy in-process limiter (kept for non-critical local guards) ───────────
-// NOTE: This is NOT suitable for production serverless — use checkRateLimit() above.
-export class InProcessRateLimiter {
-  private maxRequests: number;
-  private windowMs: number;
-  private store = new Map<string, { count: number; firstRequest: number }>();
-
-  constructor(options: { maxRequests: number; windowMs: number }) {
-    this.maxRequests = options.maxRequests;
-    this.windowMs = options.windowMs;
-  }
-
-  /** Records one request for key. Call before isBlocked(). */
-  record(key: string): void {
-    const now = Date.now();
-    const existing = this.store.get(key);
-    if (!existing || now - existing.firstRequest > this.windowMs) {
-      this.store.set(key, { count: 1, firstRequest: now });
-    } else {
-      existing.count += 1;
-    }
-  }
-
-  /** Returns true if the key has exceeded maxRequests in the current window. */
-  isBlocked(key: string): boolean {
-    const now = Date.now();
-    const existing = this.store.get(key);
-    if (!existing) return false;
-    if (now - existing.firstRequest > this.windowMs) {
-      this.store.delete(key);
-      return false;
-    }
-    return existing.count >= this.maxRequests;
-  }
-
-  /**
-   * Back-dates the firstRequest timestamp by simulatedAgeMs so isBlocked()
-   * sees the window as expired. Used in tests to simulate time passing.
-   */
-  resetExpired(key: string, simulatedAgeMs?: number): void {
-    const existing = this.store.get(key);
-    if (!existing) return;
-    if (simulatedAgeMs !== undefined) {
-      existing.firstRequest = Date.now() - simulatedAgeMs;
-    } else {
-      this.store.delete(key);
-    }
-  }
-
-  /** Combined record+isBlocked in one call (legacy). Returns true if allowed. */
-  check(key: string): boolean {
-    this.record(key);
-    return !this.isBlocked(key);
-  }
-
-  /** Call periodically to prevent unbounded Map growth. */
-  prune(): void {
-    const now = Date.now();
-    for (const [key, record] of Array.from(this.store)) {
-      if (now - record.firstRequest > this.windowMs) this.store.delete(key);
-    }
-  }
-}
-
-/** @deprecated Use checkRateLimit() for distributed serverless rate limiting. */
-export { InProcessRateLimiter as RateLimiter };

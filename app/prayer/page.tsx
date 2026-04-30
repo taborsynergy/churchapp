@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Heart, Plus, Loader as Loader2, User, Clock, Trash2, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PendingApprovalScreen } from '@/components/ui/pending-approval';
 import { adminWrite } from '@/lib/admin-write';
 import { format } from 'date-fns';
@@ -50,6 +51,7 @@ export default function PrayerPage() {
   const [answerNote, setAnswerNote] = useState('');
   const [answering, setAnswering] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [confirmDlg, setConfirmDlg] = useState<{ open: boolean; description: string; onConfirm: () => void }>({ open: false, description: '', onConfirm: () => {} });
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'staff';
 
@@ -73,14 +75,16 @@ export default function PrayerPage() {
   useEffect(() => { load(); }, []);
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this prayer request?')) return;
-    const { error } = await adminWrite('prayer_requests', 'delete', undefined, id);
-    if (error) {
-      toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Prayer request deleted' });
-      load();
-    }
+    setConfirmDlg({
+      open: true,
+      description: 'Delete this prayer request? This action cannot be undone.',
+      onConfirm: async () => {
+        const { error } = await adminWrite('prayer_requests', 'delete', undefined, id);
+        if (error) { toast({ title: 'Delete failed', description: error.message, variant: 'destructive' }); }
+        else { toast({ title: 'Prayer request deleted' }); load(); }
+        setConfirmDlg((c) => ({ ...c, open: false }));
+      },
+    });
   }
 
   function openAnswerDialog(req: PrayerRequest) {
@@ -501,6 +505,13 @@ export default function PrayerPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmDlg.open}
+        description={confirmDlg.description}
+        onConfirm={confirmDlg.onConfirm}
+        onCancel={() => setConfirmDlg((c) => ({ ...c, open: false }))}
+      />
     </div>
   );
 }

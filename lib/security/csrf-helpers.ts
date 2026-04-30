@@ -76,8 +76,8 @@ export function isSafeRedirectUrl(url: string, baseOrigin?: string): boolean {
     if (baseOrigin) {
       return parsed.origin === baseOrigin;
     }
-    // If no baseOrigin provided, only allow https
-    return parsed.protocol === 'https:';
+    // If no baseOrigin provided, allow https or http://localhost (dev)
+    return parsed.protocol === 'https:' || parsed.hostname === 'localhost';
   } catch {
     return false;
   }

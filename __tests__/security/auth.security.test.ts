@@ -148,7 +148,7 @@ describe('Security: Authentication & Session', () => {
     });
 
     it('should accept a strong password meeting all requirements', () => {
-      expect(validatePasswordStrength('SecurePass1')).toBe(true);
+      expect(validatePasswordStrength('SecurePass1!')).toBe(true);
       expect(validatePasswordStrength('Church@2024')).toBe(true);
     });
   });

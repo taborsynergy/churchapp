@@ -1,9 +1,9 @@
 const path = require('path');
 const fs = require('fs');
 
-const envPath = path.resolve(__dirname, '.env');
-if (fs.existsSync(envPath)) {
-  const lines = fs.readFileSync(envPath, 'utf-8').split('\n');
+function loadEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) return;
+  const lines = fs.readFileSync(filePath, 'utf-8').split('\n');
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
@@ -16,3 +16,7 @@ if (fs.existsSync(envPath)) {
     }
   }
 }
+
+// Load .env first, then .env.local (local takes precedence where already set)
+loadEnvFile(path.resolve(__dirname, '.env'));
+loadEnvFile(path.resolve(__dirname, '.env.local'));

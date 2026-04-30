@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Pencil, Loader as Loader2, Calendar, Users } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { format } from 'date-fns';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { adminWrite } from '@/lib/admin-write';
@@ -32,6 +33,7 @@ export default function AdminEventsPage() {
   const [rsvpEvent, setRsvpEvent] = useState<Event | null>(null);
   const [rsvps, setRsvps] = useState<any[]>([]);
   const [rsvpLoading, setRsvpLoading] = useState(false);
+  const [confirmDlg, setConfirmDlg] = useState<{ open: boolean; description: string; onConfirm: () => void }>({ open: false, description: '', onConfirm: () => {} });
 
   async function load() {
     const { data } = await supabase.from('events').select('*').order('start_date', { ascending: false });
@@ -83,10 +85,16 @@ export default function AdminEventsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this event?')) return;
-    await adminWrite('events', 'delete', undefined, id);
-    toast({ title: 'Event deleted' });
-    load();
+    setConfirmDlg({
+      open: true,
+      description: 'Delete this event? This action cannot be undone.',
+      onConfirm: async () => {
+        await adminWrite('events', 'delete', undefined, id);
+        toast({ title: 'Event deleted' });
+        load();
+        setConfirmDlg((c) => ({ ...c, open: false }));
+      },
+    });
   }
 
   return (
@@ -220,6 +228,13 @@ export default function AdminEventsPage() {
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDlg.open}
+        description={confirmDlg.description}
+        onConfirm={confirmDlg.onConfirm}
+        onCancel={() => setConfirmDlg((c) => ({ ...c, open: false }))}
+      />
     </div>
   );
 }

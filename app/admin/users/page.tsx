@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { adminWrite } from '@/lib/admin-write';
 import { Search, UserCheck, UserX, Users, Loader as Loader2, UserPlus, Ban } from 'lucide-react';
 import { format } from 'date-fns';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 export default function AdminUsersPage() {
   const router = useRouter();
@@ -36,6 +37,7 @@ export default function AdminUsersPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addForm, setAddForm] = useState({ full_name: '', email: '', password: '', role: 'member', status: 'active' });
+  const [confirmDlg, setConfirmDlg] = useState<{ open: boolean; description: string; onConfirm: () => void }>({ open: false, description: '', onConfirm: () => {} });
 
   async function load() {
     const { data } = await supabase.from('church_users').select('*').order('created_at', { ascending: false });
@@ -62,8 +64,14 @@ export default function AdminUsersPage() {
   }
 
   async function rejectUser(id: string) {
-    if (!confirm('Reject this registration? The account will be suspended.')) return;
-    await updateUser(id, { status: 'suspended' });
+    setConfirmDlg({
+      open: true,
+      description: 'Reject this registration? The account will be suspended.',
+      onConfirm: async () => {
+        await updateUser(id, { status: 'suspended' });
+        setConfirmDlg((c) => ({ ...c, open: false }));
+      },
+    });
   }
 
   async function handleAddMember(e: React.FormEvent) {
@@ -285,6 +293,13 @@ export default function AdminUsersPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDlg.open}
+        description={confirmDlg.description}
+        onConfirm={confirmDlg.onConfirm}
+        onCancel={() => setConfirmDlg((c) => ({ ...c, open: false }))}
+      />
     </div>
   );
 }

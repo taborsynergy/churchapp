@@ -44,19 +44,26 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdminOrStaff(req.headers.get('authorization'));
   if (!auth.ok) return auth.response;
 
+  const { searchParams } = new URL(req.url);
+  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '50', 10) || 50, 1), 200);
+  const page = Math.max(parseInt(searchParams.get('page') ?? '1', 10) || 1, 1);
+  const offset = (page - 1) * limit;
+
   const db = adminClient();
 
   let { data, error } = await db
     .from('groups')
     .select('*, group_members(*)')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) {
     console.warn('[groups GET] join failed, retrying without group_members:', error.message);
     ({ data, error } = await db
       .from('groups')
       .select('*')
-      .order('created_at', { ascending: false }));
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1));
   }
 
   if (error) {
@@ -64,7 +71,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ groups: data ?? [] });
+  return NextResponse.json({ groups: data ?? [], page, limit });
 }
 
 // ─── POST /api/admin/groups ───────────────────────────────────────────────────
