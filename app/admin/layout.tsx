@@ -25,8 +25,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && (!user || (profile && !['admin', 'staff'].includes(profile.role)))) {
-      router.push('/');
+    if (loading) return;
+    if (!user) {
+      router.replace('/login?next=/admin');
+      return;
+    }
+    // profile loaded but not admin/staff (includes null profile = no church_users row)
+    if (!profile || !['admin', 'staff'].includes(profile.role)) {
+      router.replace('/');
     }
   }, [user, profile, loading]);
 
@@ -34,14 +40,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return <div className="min-h-screen flex items-center justify-center bg-slate-950"><Loader2 className="h-8 w-8 animate-spin text-teal-400" /></div>;
   }
 
-  if (!profile || !['admin', 'staff'].includes(profile.role)) return null;
+  if (!user || !profile || !['admin', 'staff'].includes(profile.role)) return null;
 
   return (
     <div className="min-h-screen bg-slate-950 flex">
       <aside className="w-56 bg-slate-900 text-slate-200 shrink-0 hidden md:flex flex-col border-r border-slate-800/60">
         <div className="p-5 border-b border-slate-800/60">
           <p className="font-bold text-white text-sm">Admin Panel</p>
-          <p className="text-xs text-slate-400 mt-0.5">Grace Community Church</p>
+          <p className="text-xs text-slate-400 mt-0.5 truncate">{profile.full_name || profile.email}</p>
         </div>
         <nav className="p-3 flex-1">
           {NAV.filter((item) => item.href !== '/admin/users' || profile?.role === 'admin').map((item) => (

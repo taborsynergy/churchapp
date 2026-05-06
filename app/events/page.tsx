@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Calendar, MapPin, Clock, Users, Check, Loader as Loader2 } from 'lucide-react';
 import { format, isPast } from 'date-fns';
-import Link from 'next/link';
 
 const CATEGORY_LABELS: Record<string, string> = {
   general: 'General', worship: 'Worship', youth: 'Youth', outreach: 'Outreach', fellowship: 'Fellowship', prayer: 'Prayer',
@@ -97,7 +96,7 @@ export default function EventsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-3">Calendar</Badge>
           <h1 className="text-4xl font-bold text-white mb-3">Church Events</h1>
-          <p className="text-slate-300 max-w-xl">Stay connected with what&apos;s happening at Grace. From Sunday worship to community outreach, there&apos;s always something to be part of.</p>
+          <p className="text-slate-300 max-w-xl">Stay connected with what&apos;s happening at {process.env.NEXT_PUBLIC_SITE_NAME ?? 'our church'}. From Sunday worship to community outreach, there&apos;s always something to be part of.</p>
         </div>
       </div>
 

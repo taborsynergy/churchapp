@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, adminClient } from '@/lib/api-auth';
+import { checkRateLimit, rateLimitHeaders } from '@/lib/security/rate-limiter';
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown';
+  const rl = await checkRateLimit(`groups-join:${ip}`, 20);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: rateLimitHeaders(rl) });
+  }
+
   const auth = await requireAuth(req.headers.get('authorization'));
   if (!auth.ok) return auth.response;
 

@@ -66,8 +66,8 @@ export default function AdminDashboard() {
     { label: 'Published Sermons', value: stats.totalSermons, icon: BookOpen, color: 'text-teal-400', bg: 'bg-teal-500/10', sub: 'Total in library' },
     { label: 'Upcoming Events', value: stats.upcomingEvents, icon: Calendar, color: 'text-teal-400', bg: 'bg-teal-500/10', sub: 'Scheduled ahead' },
     { label: 'Open Prayer Requests', value: stats.openPrayers, icon: Heart, color: 'text-rose-400', bg: 'bg-rose-500/10', sub: 'Awaiting prayer' },
-    { label: 'Total Giving', value: `$${stats.totalDonations.toLocaleString()}`, icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-500/10', sub: 'All time' },
-    { label: 'This Month', value: `$${stats.monthDonations.toLocaleString()}`, icon: TrendingUp, color: 'text-teal-400', bg: 'bg-teal-500/10', sub: 'Donations received' },
+    { label: 'Total Giving', value: stats.totalDonations.toLocaleString(), icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-500/10', sub: 'All time (all currencies)' },
+    { label: 'This Month', value: stats.monthDonations.toLocaleString(), icon: TrendingUp, color: 'text-teal-400', bg: 'bg-teal-500/10', sub: 'Donations received' },
   ];
 
   return (

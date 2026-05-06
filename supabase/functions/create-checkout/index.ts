@@ -2,10 +2,14 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@14.21.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+// Restrict to the app's own origin. SITE_URL must be set in the Supabase
+// project's edge-function secrets (e.g. https://gracecommunity.church).
+const allowedOrigin = Deno.env.get("SITE_URL") ?? "";
+
+const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  ...(allowedOrigin ? { "Access-Control-Allow-Origin": allowedOrigin } : {}),
 };
 
 const ALLOWED_PAYMENT_TYPES = ["one_time", "recurring"];

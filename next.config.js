@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const { withSentryConfig } = require('@sentry/nextjs');
+
 const nextConfig = {
   images: {
     remotePatterns: [
@@ -11,4 +13,10 @@ const nextConfig = {
   // carry a per-request nonce. No static CSP header here.
 };
 
-module.exports = nextConfig;
+module.exports = withSentryConfig(nextConfig, {
+  // Suppress the Sentry CLI upload banner in CI logs
+  silent: true,
+  // Upload source maps only in production builds
+  disableServerWebpackPlugin: process.env.NODE_ENV !== 'production',
+  disableClientWebpackPlugin: process.env.NODE_ENV !== 'production',
+});

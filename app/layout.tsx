@@ -5,6 +5,7 @@ import { AuthProvider } from '@/components/providers/AuthProvider';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Toaster } from '@/components/ui/toaster';
+import { TrialBanner } from '@/components/ui/trial-banner';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
-  keywords: ['church', 'community', 'faith', 'sermons', 'events', 'prayer', 'Grace Community Church', 'Springfield'],
+  keywords: ['church', 'community', 'faith', 'sermons', 'events', 'prayer', SITE_NAME],
   authors: [{ name: SITE_NAME, url: SITE_URL }],
   creator: SITE_NAME,
   publisher: SITE_NAME,
@@ -59,17 +60,6 @@ const organizationSchema = {
   name: SITE_NAME,
   url: SITE_URL,
   description: SITE_DESCRIPTION,
-  address: {
-    '@type': 'PostalAddress',
-    streetAddress: '123 Grace Avenue',
-    addressLocality: 'Springfield',
-    addressRegion: 'IL',
-    postalCode: '62701',
-    addressCountry: 'US',
-  },
-  telephone: '+15551234567',
-  email: 'info@gracecommunity.church',
-  openingHours: ['Su 09:00-12:00', 'We 19:00-21:00', 'Fr 18:30-20:30'],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -78,6 +68,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#14b8a6" />
+        <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}` }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
@@ -91,6 +82,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to main content
         </a>
         <AuthProvider>
+          <TrialBanner />
           <div className="flex flex-col min-h-screen">
             <Navbar />
             <main id="main-content" className="flex-1">{children}</main>

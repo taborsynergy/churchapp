@@ -89,11 +89,17 @@ export default function Footer() {
 
         <div className="border-t border-slate-800/60 mt-10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-3">
           <p className="text-xs text-slate-500">
-            &copy; {new Date().getFullYear()} Grace Community Church. Developed by TaborSynergy.
+            &copy; {new Date().getFullYear()} ChurchConnect. Powered by{' '}
+            <a href="https://taborsynergy.com" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline">Tabor Synergy</a>
+            {' '}| admin@taborsynergy.com
           </p>
-          <div className="flex gap-4">
-            <Link href="/privacy" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Privacy Policy</Link>
-            <Link href="/terms" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Terms of Use</Link>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <Link href="/pricing" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Pricing</Link>
+            <Link href="/privacy" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Privacy</Link>
+            <Link href="/terms" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Terms</Link>
+            <Link href="/cookie-policy" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Cookies</Link>
+            <Link href="/refund-policy" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Refunds</Link>
+            <Link href="/support" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Support</Link>
           </div>
         </div>
       </div>

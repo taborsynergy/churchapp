@@ -6,7 +6,8 @@ import { TriangleAlert as AlertTriangle } from 'lucide-react';
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    console.error(error);
+    // In production this is captured by Sentry; log only in dev
+    if (process.env.NODE_ENV !== 'production') console.error(error);
   }, [error]);
 
   return (

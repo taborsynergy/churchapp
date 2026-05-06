@@ -19,6 +19,7 @@ export interface UserProfile {
   phone: string;
   bio: string;
   address: string;
+  church_id?: string | null;
   created_at: string;
   updated_at: string;
 }

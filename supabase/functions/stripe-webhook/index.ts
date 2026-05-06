@@ -2,21 +2,15 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@14.21.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, stripe-signature",
-};
+// No CORS headers — this endpoint is called server-to-server by Stripe, never
+// from a browser. Adding CORS (especially wildcard) here would be incorrect.
+const jsonHeaders = { "Content-Type": "application/json" };
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
-  }
-
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: jsonHeaders,
     });
   }
 
@@ -27,7 +21,7 @@ Deno.serve(async (req: Request) => {
     if (!stripeKey || !webhookSecret) {
       return new Response(JSON.stringify({ error: "Stripe not configured" }), {
         status: 503,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
@@ -37,7 +31,7 @@ Deno.serve(async (req: Request) => {
     if (!signature) {
       return new Response(JSON.stringify({ error: "Missing stripe-signature header" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
@@ -50,7 +44,7 @@ Deno.serve(async (req: Request) => {
       const msg = err instanceof Error ? err.message : "Webhook signature verification failed";
       return new Response(JSON.stringify({ error: msg }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
@@ -116,13 +110,13 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(JSON.stringify({ received: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: jsonHeaders,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "An unexpected error occurred";
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: jsonHeaders,
     });
   }
 });

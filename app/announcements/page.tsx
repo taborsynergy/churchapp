@@ -49,7 +49,7 @@ export default function AnnouncementsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Badge className="bg-teal-500/10 text-teal-400 border border-teal-500/20 mb-3">Updates</Badge>
           <h1 className="text-4xl font-bold text-white mb-3">Church Announcements</h1>
-          <p className="text-slate-300 max-w-xl">Stay informed with the latest news, updates, and opportunities at Grace Community Church.</p>
+          <p className="text-slate-300 max-w-xl">Stay informed with the latest news, updates, and opportunities at {process.env.NEXT_PUBLIC_SITE_NAME ?? 'our church'}.</p>
         </div>
       </div>
 
@@ -62,7 +62,7 @@ export default function AnnouncementsPage() {
           <div className="text-center py-20 text-slate-500">
             <Megaphone className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p className="font-medium">No announcements at this time</p>
-            <p className="text-sm mt-1">Check back soon for updates from Grace Community Church.</p>
+            <p className="text-sm mt-1">Check back soon for updates from {process.env.NEXT_PUBLIC_SITE_NAME ?? 'our church'}.</p>
           </div>
         ) : (
           <div className="space-y-4">

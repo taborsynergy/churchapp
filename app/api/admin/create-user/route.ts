@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin, adminClient } from '@/lib/api-auth';
 import { checkRateLimitStrict, rateLimitHeaders } from '@/lib/security/rate-limiter';
+import { sendEmail } from '@/lib/email/send';
+import { welcomeEmail } from '@/lib/email/templates';
 
 const VALID_ROLES = ['member', 'staff', 'admin', 'pending'] as const;
 const VALID_STATUSES = ['active', 'pending', 'suspended'] as const;
@@ -87,6 +89,13 @@ export async function POST(req: NextRequest) {
     await svc.auth.admin.deleteUser(authData.user.id);
     return NextResponse.json({ error: 'Failed to create user profile' }, { status: 500 });
   }
+
+  // Fire welcome email — non-blocking so a mail failure doesn't break user creation
+  sendEmail({
+    to: safeEmail,
+    subject: 'Welcome to ChurchConnect',
+    html: welcomeEmail(safeName, 'your church'),
+  }).catch(() => {});
 
   return NextResponse.json({ success: true });
 }

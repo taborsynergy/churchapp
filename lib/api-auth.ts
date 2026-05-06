@@ -89,6 +89,36 @@ async function resolveUserAndRole(
 
 // ─── Auth guards ──────────────────────────────────────────────────────────────
 
+const SUPER_ADMIN_EMAIL = 'admin@taborsynergy.com';
+
+/**
+ * Requires the caller to be the Tabor Synergy super-admin.
+ */
+export async function requireSuperAdmin(authHeader: string | null): Promise<AuthResult> {
+  if (!authHeader?.startsWith('Bearer ')) {
+    return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+  const token = authHeader.slice(7);
+  const { data: { user } } = await anonClient().auth.getUser(token);
+  if (!user?.id) {
+    return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+  if (user.email !== SUPER_ADMIN_EMAIL) {
+    return { ok: false, response: NextResponse.json({ error: 'Forbidden — super-admin only' }, { status: 403 }) };
+  }
+  return { ok: true, userId: user.id, role: 'super_admin' };
+}
+
+/**
+ * Returns true when the authenticated user is the super-admin (bypasses church guards).
+ */
+export async function isSuperAdmin(authHeader: string | null): Promise<boolean> {
+  if (!authHeader?.startsWith('Bearer ')) return false;
+  const token = authHeader.slice(7);
+  const { data: { user } } = await anonClient().auth.getUser(token);
+  return user?.email === SUPER_ADMIN_EMAIL;
+}
+
 /**
  * Requires the caller to be an authenticated admin or staff member.
  */

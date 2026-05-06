@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Users, MapPin, Clock, Check, Loader as Loader2 } from 'lucide-react';
+import { PendingApprovalScreen } from '@/components/ui/pending-approval';
 
 const CATEGORY_LABELS: Record<string, string> = {
   general: 'General', bible_study: 'Bible Study', youth: 'Youth', women: 'Women',
@@ -78,6 +79,8 @@ export default function GroupsPage() {
     setJoinLoading(null);
     load();
   }
+
+  if (!loading && user && profile && profile.status !== 'active') return <PendingApprovalScreen />;
 
   const filtered = groups.filter((g) => category === 'all' || g.category === category);
 
