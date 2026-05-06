@@ -4,9 +4,14 @@
  */
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://uskeyzsburxfdmqoghnw.supabase.co';
-const SERVICE_ROLE_KEY = 'SUPABASE_SERVICE_ROLE_KEY_REDACTED';
-const ANON_KEY = 'SUPABASE_ANON_KEY_REDACTED';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
+  console.error('Missing env vars: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  process.exit(1);
+}
 
 const TEST_EMAIL = 'uitest.admin@gracechurch.demo';
 const TEST_PASSWORD = 'UiTest@Admin1';

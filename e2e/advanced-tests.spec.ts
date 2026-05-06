@@ -606,16 +606,19 @@ test.describe('SEC: Security Tests', () => {
 
   test('SEC-007: direct API without auth token returns no data (Supabase RLS)', async ({ page }) => {
     // Test that anon client cannot read protected data
-    const result = await page.evaluate(async () => {
-      const resp = await fetch('https://uskeyzsburxfdmqoghnw.supabase.co/rest/v1/church_users?select=*&limit=5', {
-        headers: {
-          'apikey': 'SUPABASE_ANON_KEY_REDACTED',
-          // No Authorization header — unauthenticated request
-        }
-      });
-      const data = await resp.json();
-      return { status: resp.status, count: Array.isArray(data) ? data.length : -1 };
-    });
+    const result = await page.evaluate(
+      async ({ url, key }: { url: string; key: string }) => {
+        const resp = await fetch(`${url}/rest/v1/church_users?select=*&limit=5`, {
+          headers: { 'apikey': key },
+        });
+        const data = await resp.json();
+        return { status: resp.status, count: Array.isArray(data) ? data.length : -1 };
+      },
+      {
+        url: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+        key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+      }
+    );
     // RLS should return 0 rows for unauthenticated anon request
     console.log(`SEC-007: Anon API call returned status=${result.status}, count=${result.count}`);
     expect(result.count).toBe(0); // RLS blocks anon reads
@@ -628,23 +631,30 @@ test.describe('SEC: Security Tests', () => {
     const jessieId = 'd84527f3-d8ed-4c10-9166-9aafeefc8fbb';
 
     // Try to query Jessie's profile using Janice's session token
-    const result = await page.evaluate(async (targetId) => {
-      const sessionStr = Object.values(localStorage).find((v) =>
-        typeof v === 'string' && v.includes('access_token')
-      ) as string | undefined;
-      if (!sessionStr) return { count: -1 };
-      const session = JSON.parse(sessionStr);
-      const token = session?.access_token;
+    const result = await page.evaluate(
+      async ({ targetId, url, key }: { targetId: string; url: string; key: string }) => {
+        const sessionStr = Object.values(localStorage).find((v) =>
+          typeof v === 'string' && v.includes('access_token')
+        ) as string | undefined;
+        if (!sessionStr) return { count: -1 };
+        const session = JSON.parse(sessionStr);
+        const token = session?.access_token;
 
-      const resp = await fetch(`https://uskeyzsburxfdmqoghnw.supabase.co/rest/v1/church_users?id=eq.${targetId}&select=*`, {
-        headers: {
-          'apikey': 'SUPABASE_ANON_KEY_REDACTED',
-          'Authorization': `Bearer ${token}`,
-        }
-      });
-      const data = await resp.json();
-      return { count: Array.isArray(data) ? data.length : -1, status: resp.status };
-    }, jessieId);
+        const resp = await fetch(`${url}/rest/v1/church_users?id=eq.${targetId}&select=*`, {
+          headers: {
+            'apikey': key,
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const data = await resp.json();
+        return { count: Array.isArray(data) ? data.length : -1, status: resp.status };
+      },
+      {
+        targetId: jessieId,
+        url: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+        key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+      }
+    );
 
     console.log(`SEC-008: Member querying other user's data: status=${result.status}, count=${result.count}`);
     // church_users is readable by all authenticated members (intentional church directory behavior).

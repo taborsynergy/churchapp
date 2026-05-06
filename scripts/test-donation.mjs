@@ -1,9 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
-const URL = 'https://uskeyzsburxfdmqoghnw.supabase.co';
-const ANON = 'SUPABASE_ANON_KEY_REDACTED';
-const SVC = 'SUPABASE_SERVICE_ROLE_KEY_REDACTED';
-const svc = createClient(URL, SVC, { auth: { autoRefreshToken: false, persistSession: false } });
-const user = createClient(URL, ANON);
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SVC = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !ANON || !SVC) {
+  console.error('Missing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, or SUPABASE_SERVICE_ROLE_KEY');
+  process.exit(1);
+}
+
+const svc = createClient(SUPABASE_URL, SVC, { auth: { autoRefreshToken: false, persistSession: false } });
+const user = createClient(SUPABASE_URL, ANON);
 
 // Check donations table columns
 const { data: dons } = await svc.from('donations').select('*').limit(1);
