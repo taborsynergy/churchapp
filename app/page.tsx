@@ -1,15 +1,14 @@
-'use client';
-
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { createServerSupabase } from '@/lib/supabase-server';
 import type { Sermon, Event, Announcement } from '@/lib/types';
-import { useAuth } from '@/components/providers/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { HeroButtons, CtaButton } from '@/components/home/hero-buttons';
 import { Church, Play, Calendar, Users, Heart, ArrowRight, MapPin, Clock, BookOpen, Mic as Mic2, HandHeart, Megaphone, ChevronRight, Star } from 'lucide-react';
 import { format } from 'date-fns';
+
+export const revalidate = 60;
 
 const VALUES = [
   { icon: BookOpen, title: 'Scripture', desc: 'We believe the Bible is the inspired Word of God — our ultimate authority for faith and life.' },
@@ -25,25 +24,17 @@ const SERVICES = [
   { day: 'Friday', time: '6:30 PM', type: 'Youth Night' },
 ];
 
-export default function HomePage() {
-  const { user } = useAuth();
-  const [sermons, setSermons] = useState<Sermon[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+export default async function HomePage() {
+  const supabase = createServerSupabase();
+  const [{ data: sermonsData }, { data: eventsData }, { data: announcementsData }] = await Promise.all([
+    supabase.from('sermons').select('*, sermon_series(*)').eq('is_published', true).order('published_at', { ascending: false }).limit(3),
+    supabase.from('events').select('*').eq('is_published', true).gte('start_date', new Date().toISOString()).order('start_date').limit(3),
+    supabase.from('announcements').select('*').eq('is_published', true).order('published_at', { ascending: false }).limit(3),
+  ]);
 
-  useEffect(() => {
-    async function load() {
-      const [{ data: sermonsData }, { data: eventsData }, { data: announcementsData }] = await Promise.all([
-        supabase.from('sermons').select('*, sermon_series(*)').eq('is_published', true).order('published_at', { ascending: false }).limit(3),
-        supabase.from('events').select('*').eq('is_published', true).gte('start_date', new Date().toISOString()).order('start_date').limit(3),
-        supabase.from('announcements').select('*').eq('is_published', true).order('published_at', { ascending: false }).limit(3),
-      ]);
-      setSermons(sermonsData ?? []);
-      setEvents(eventsData ?? []);
-      setAnnouncements(announcementsData ?? []);
-    }
-    load();
-  }, []);
+  const sermons = (sermonsData ?? []) as Sermon[];
+  const events = (eventsData ?? []) as Event[];
+  const announcements = (announcementsData ?? []) as Announcement[];
 
   return (
     <div className="bg-slate-950">
@@ -67,16 +58,7 @@ export default function HomePage() {
               A warm, welcoming church family where everyone belongs. Come as you are — experience authentic worship, biblical teaching, and a community that cares.
             </p>
             <div className="flex flex-wrap gap-4">
-              {!user && (
-                <Button size="lg" className="bg-teal-500 hover:bg-teal-400 text-white font-semibold shadow-xl shadow-teal-500/20 text-base px-8 transition-all hover:shadow-teal-500/30 hover:scale-105" asChild>
-                  <Link href="/register">Join Our Family</Link>
-                </Button>
-              )}
-              {user && (
-                <Button size="lg" className="bg-teal-500 hover:bg-teal-400 text-white font-semibold shadow-xl shadow-teal-500/20 text-base px-8 transition-all hover:shadow-teal-500/30 hover:scale-105" asChild>
-                  <Link href="/profile">My Profile</Link>
-                </Button>
-              )}
+              <HeroButtons />
               <Button size="lg" variant="outline" className="border-slate-600 text-slate-200 hover:bg-slate-800 hover:text-white hover:border-slate-500 bg-transparent text-base px-8 transition-all" asChild>
                 <Link href="/sermons">
                   <Play className="h-4 w-4 mr-2" />
@@ -303,11 +285,7 @@ export default function HomePage() {
                 Whether you&apos;re exploring faith for the first time or looking for a church home, you&apos;re welcome here. No pressure, no expectations — just community.
               </p>
               <div className="flex flex-wrap gap-4">
-                {!user && (
-                  <Button size="lg" className="bg-teal-500 hover:bg-teal-400 text-white font-semibold shadow-xl shadow-teal-500/20 hover:shadow-teal-500/30 transition-all hover:scale-105" asChild>
-                    <Link href="/register">Create Your Account</Link>
-                  </Button>
-                )}
+                <CtaButton />
                 <Button size="lg" variant="outline" className="border-slate-600 text-slate-200 hover:bg-slate-800 hover:border-slate-500 bg-transparent transition-all" asChild>
                   <Link href="/groups">Find a Small Group</Link>
                 </Button>

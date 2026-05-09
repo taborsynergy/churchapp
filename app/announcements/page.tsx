@@ -1,13 +1,12 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { createServerSupabase } from '@/lib/supabase-server';
 import type { Announcement } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Megaphone, Clock, TriangleAlert as AlertTriangle, Info, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+
+export const revalidate = 60;
 
 const PRIORITY_STYLES: Record<string, { badge: string; border: string; icon: any; label: string }> = {
   urgent: { badge: 'bg-red-500/20 text-red-400 border-red-500/30', border: 'border-l-red-500', icon: AlertTriangle, label: 'Urgent' },
@@ -16,32 +15,24 @@ const PRIORITY_STYLES: Record<string, { badge: string; border: string; icon: any
   low: { badge: 'bg-slate-800 text-slate-400 border-slate-700', border: 'border-l-slate-600', icon: Info, label: 'Info' },
 };
 
-export default function AnnouncementsPage() {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
+const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
-  const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+export default async function AnnouncementsPage() {
+  const supabase = createServerSupabase();
+  const now = new Date().toISOString();
+  const { data } = await supabase
+    .from('announcements')
+    .select('*')
+    .eq('is_published', true)
+    .or(`expires_at.is.null,expires_at.gt.${now}`)
+    .order('published_at', { ascending: false });
 
-  useEffect(() => {
-    async function load() {
-      const now = new Date().toISOString();
-      const { data } = await supabase
-        .from('announcements')
-        .select('*')
-        .eq('is_published', true)
-        .or(`expires_at.is.null,expires_at.gt.${now}`)
-        .order('published_at', { ascending: false });
-      const sorted = (data ?? []).sort((a: Announcement, b: Announcement) => {
-        const pa = PRIORITY_ORDER[a.priority] ?? 2;
-        const pb = PRIORITY_ORDER[b.priority] ?? 2;
-        if (pa !== pb) return pa - pb;
-        return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
-      });
-      setAnnouncements(sorted);
-      setLoading(false);
-    }
-    load();
-  }, []);
+  const announcements = ((data ?? []) as Announcement[]).sort((a, b) => {
+    const pa = PRIORITY_ORDER[a.priority] ?? 2;
+    const pb = PRIORITY_ORDER[b.priority] ?? 2;
+    if (pa !== pb) return pa - pb;
+    return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
+  });
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -54,11 +45,7 @@ export default function AnnouncementsPage() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {loading ? (
-          <div className="space-y-4">
-            {[...Array(4)].map((_, i) => <div key={i} className="h-32 bg-slate-800 rounded-xl animate-pulse" />)}
-          </div>
-        ) : announcements.length === 0 ? (
+        {announcements.length === 0 ? (
           <div className="text-center py-20 text-slate-500">
             <Megaphone className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p className="font-medium">No announcements at this time</p>
