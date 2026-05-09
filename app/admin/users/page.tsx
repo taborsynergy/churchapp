@@ -23,11 +23,6 @@ export default function AdminUsersPage() {
   const { profile: currentProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!authLoading && currentProfile && currentProfile.role !== 'admin') {
-      router.replace('/admin');
-    }
-  }, [currentProfile, authLoading]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -39,6 +34,12 @@ export default function AdminUsersPage() {
   const [addForm, setAddForm] = useState({ full_name: '', email: '', password: '', role: 'member', status: 'active' });
   const [confirmDlg, setConfirmDlg] = useState<{ open: boolean; description: string; onConfirm: () => void }>({ open: false, description: '', onConfirm: () => {} });
 
+  useEffect(() => {
+    if (!authLoading && currentProfile && currentProfile.role !== 'admin') {
+      router.replace('/admin');
+    }
+  }, [currentProfile, authLoading]);
+
   async function load() {
     const { data } = await supabase.from('church_users').select('*').order('created_at', { ascending: false });
     setUsers(data ?? []);
@@ -46,6 +47,9 @@ export default function AdminUsersPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  // Prevent flash of user list for staff — return null until auth confirms admin role
+  if (authLoading || !currentProfile || currentProfile.role !== 'admin') return null;
 
   async function updateUser(id: string, updates: Partial<UserProfile>) {
     setUpdating(id);
