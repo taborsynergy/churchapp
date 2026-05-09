@@ -129,7 +129,7 @@ export default function PricingPage() {
             Simple pricing for every church
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            14-day free trial — no credit card required. Pay in ₹ or $. Cancel anytime.
+            14-day free trial — no credit card required. Pay in $ or ₹. Cancel anytime.
           </p>
           <p className="text-slate-500 text-sm mt-2">Annual billing saves 2 months (~20% off)</p>
         </div>
@@ -156,10 +156,10 @@ export default function PricingPage() {
                 <p className="text-slate-400 text-xs mb-4 leading-relaxed">{plan.description}</p>
 
                 <div className="mb-1">
-                  <span className="text-3xl font-extrabold text-teal-400">{plan.priceINR}</span>
+                  <span className="text-3xl font-extrabold text-teal-400">{plan.priceUSD}</span>
                   <span className="text-slate-400 text-xs ml-1">{plan.periodLabel}</span>
                 </div>
-                <p className="text-slate-500 text-xs">{plan.priceUSD}{plan.periodLabel} USD</p>
+                <p className="text-slate-500 text-xs">{plan.priceINR}{plan.periodLabel} INR</p>
                 {plan.name !== 'Free' && (
                   <p className="text-teal-400 text-xs mt-1 font-medium flex items-center gap-1">
                     <Zap className="h-3 w-3" /> 14-day free trial
@@ -220,7 +220,7 @@ export default function PricingPage() {
               </span>
             ))}
           </div>
-          <p className="text-slate-600 text-xs mt-3">Indian churches pay in ₹ via Razorpay · International churches pay in $ via Stripe</p>
+          <p className="text-slate-600 text-xs mt-3">US &amp; international churches pay in $ via Stripe · Indian churches pay in ₹ via Razorpay</p>
         </div>
 
         {/* FAQ / Contact */}
