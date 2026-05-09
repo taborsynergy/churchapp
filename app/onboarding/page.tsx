@@ -56,8 +56,18 @@ export default function OnboardingPage() {
         onboarding_done: true,
       }, { onConflict: 'church_id' });
 
-      toast({ title: 'Church set up successfully!', description: 'Your 14-day free trial has started.' });
-      router.push('/dashboard');
+      // Promote the registering user to church admin
+      await supabase.from('church_users').upsert({
+        id: user!.id,
+        email: user!.email ?? '',
+        full_name: user!.user_metadata?.full_name ?? user!.user_metadata?.name ?? '',
+        role: 'admin',
+        status: 'active',
+        church_id: church.id,
+      }, { onConflict: 'id' });
+
+      toast({ title: 'Church set up!', description: 'Your 14-day free trial has started.' });
+      router.push('/admin');
     } catch (err: any) {
       toast({ title: 'Setup failed', description: err.message, variant: 'destructive' });
     }

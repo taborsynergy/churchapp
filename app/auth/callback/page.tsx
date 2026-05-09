@@ -5,13 +5,41 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Loader } from 'lucide-react';
 
+async function resolveRedirect(userId: string, email: string, meta: Record<string, any>): Promise<string> {
+  // Upsert church_users — ignoreDuplicates so existing data is preserved
+  await supabase.from('church_users').upsert(
+    {
+      id: userId,
+      email,
+      full_name: meta.full_name ?? meta.name ?? '',
+      avatar_url: meta.avatar_url ?? meta.picture ?? '',
+      role: 'pending',
+      status: 'pending',
+    },
+    { onConflict: 'id', ignoreDuplicates: true }
+  );
+
+  const { data: profile } = await supabase
+    .from('church_users')
+    .select('role, church_id')
+    .eq('id', userId)
+    .maybeSingle();
+
+  // New user with no church yet → onboarding
+  if (!profile?.church_id) return '/onboarding';
+
+  // Existing admin/staff → admin dashboard
+  if (profile.role === 'admin' || profile.role === 'staff') return '/admin';
+
+  // Existing member → home
+  return '/';
+}
+
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [message, setMessage] = useState('Signing you in…');
 
   useEffect(() => {
-    // detectSessionInUrl:true means the Supabase client automatically
-    // exchanges the code/token in the URL hash before firing onAuthStateChange.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         router.replace('/reset-password');
@@ -20,47 +48,24 @@ export default function AuthCallbackPage() {
 
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
         setMessage('Setting up your account…');
-
-        // Upsert the church_users record — safe under concurrent sessions/tabs.
-        // ignoreDuplicates keeps existing data intact if the row already exists.
-        const meta = session.user.user_metadata ?? {};
-        await supabase.from('church_users').upsert(
-          {
-            id: session.user.id,
-            email: session.user.email ?? '',
-            full_name: meta.full_name ?? meta.name ?? '',
-            avatar_url: meta.avatar_url ?? meta.picture ?? '',
-            role: 'pending',
-            status: 'pending',
-          },
-          { onConflict: 'id', ignoreDuplicates: true }
+        const dest = await resolveRedirect(
+          session.user.id,
+          session.user.email ?? '',
+          session.user.user_metadata ?? {}
         );
-
-        const { data: profile } = await supabase
-          .from('church_users')
-          .select('role')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        const role = profile?.role;
-        if (role === 'admin' || role === 'staff') {
-          router.replace('/admin');
-        } else {
-          router.replace('/');
-        }
+        router.replace(dest);
       }
     });
 
-    // Fallback: if session is already present (e.g. page re-loaded after OAuth)
+    // Fallback for already-active sessions (page reload after OAuth)
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        const { data: profile } = await supabase
-          .from('church_users')
-          .select('role')
-          .eq('id', session.user.id)
-          .maybeSingle();
-        const role = profile?.role;
-        router.replace(role === 'admin' || role === 'staff' ? '/admin' : '/');
+        const dest = await resolveRedirect(
+          session.user.id,
+          session.user.email ?? '',
+          session.user.user_metadata ?? {}
+        );
+        router.replace(dest);
       }
     });
 

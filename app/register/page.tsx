@@ -7,9 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Church, Loader as Loader2, Eye, EyeOff, CircleCheck as CheckCircle } from 'lucide-react';
+import { Church, Loader as Loader2, Eye, EyeOff, CircleCheck as CheckCircle, Zap } from 'lucide-react';
 
 function GoogleIcon() {
   return (
@@ -43,7 +42,6 @@ export default function RegisterPage() {
       toast({ title: 'Google sign-in failed', description: error.message, variant: 'destructive' });
       setGoogleLoading(false);
     }
-    // On success the browser navigates away — no need to reset loading
   }
 
   async function handleRegister(e: React.FormEvent) {
@@ -57,7 +55,7 @@ export default function RegisterPage() {
       return;
     }
     if (!/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
-      toast({ title: 'Password too weak', description: 'Password must contain at least one uppercase letter, one number, and one special character.', variant: 'destructive' });
+      toast({ title: 'Password too weak', description: 'Include uppercase, a number, and a special character.', variant: 'destructive' });
       return;
     }
     setLoading(true);
@@ -67,34 +65,33 @@ export default function RegisterPage() {
       password,
       options: {
         data: { full_name: fullName.trim() },
-        // Redirect to callback so email confirmation also creates the church_users record
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
 
     if (error) {
       const msg = error.message.toLowerCase().includes('already registered')
-        ? 'An account with this email already exists.'
+        ? 'An account with this email already exists. Try signing in instead.'
         : error.message;
       toast({ title: 'Registration failed', description: msg, variant: 'destructive' });
       setLoading(false);
       return;
     }
 
-    // identities is empty when the email is already taken (Supabase hides this to prevent enumeration)
     if (!data.user || (data.user.identities && data.user.identities.length === 0)) {
-      toast({ title: 'Email already registered', description: 'An account with this email already exists. Try signing in instead.', variant: 'destructive' });
+      toast({ title: 'Email already registered', description: 'Try signing in instead.', variant: 'destructive' });
       setLoading(false);
       return;
     }
 
-    // Only create church_users if Supabase gave us a confirmed session (email confirmation disabled).
-    // If session is null, email confirmation is required — church_users will be created by /auth/callback.
+    // If email confirmation is disabled Supabase returns a session immediately — go straight to onboarding
     if (data.session) {
       await supabase.from('church_users').upsert(
         { id: data.user.id, email, full_name: fullName.trim(), role: 'pending', status: 'pending' },
         { onConflict: 'id', ignoreDuplicates: true }
       );
+      window.location.href = '/onboarding';
+      return;
     }
 
     setSuccessEmail(email);
@@ -106,15 +103,16 @@ export default function RegisterPage() {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-950 px-4 py-12">
         <div className="w-full max-w-md text-center">
-          <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="h-8 w-8 text-green-400" />
+          <div className="w-16 h-16 rounded-full bg-teal-500/20 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="h-8 w-8 text-teal-400" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Welcome to Grace!</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Check your email</h2>
           <p className="text-slate-400 mb-2">
-            Your account has been submitted and is pending admin approval.
+            We sent a confirmation link to{' '}
+            <span className="text-slate-200 font-medium">{successEmail}</span>.
           </p>
-          <p className="text-slate-500 text-sm mb-6">
-            We also sent a confirmation link to <span className="text-slate-300 font-medium">{successEmail}</span>. Please click it to verify your email address.
+          <p className="text-slate-500 text-sm mb-8">
+            Click the link to confirm your email and set up your church — takes less than 2 minutes.
           </p>
           <Button className="bg-teal-500 hover:bg-teal-400 text-white font-semibold" asChild>
             <Link href="/">Return Home</Link>
@@ -131,23 +129,25 @@ export default function RegisterPage() {
           <div className="w-14 h-14 rounded-full bg-teal-500 flex items-center justify-center mx-auto mb-4">
             <Church className="h-7 w-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Grace Community Church</h1>
-          <p className="text-slate-400 mt-1">Create your member account</p>
+          <h1 className="text-2xl font-bold text-white">Start your free trial</h1>
+          <p className="text-slate-400 mt-1">14 days free · No credit card required</p>
         </div>
 
         <Card className="border-slate-700/50 bg-slate-900 shadow-md">
           <CardHeader className="pb-4">
-            <CardTitle className="text-xl text-white">Join Our Community</CardTitle>
-            <CardDescription className="text-slate-400">Register to access all member features</CardDescription>
+            <CardTitle className="text-xl text-white">Create your admin account</CardTitle>
+            <CardDescription className="text-slate-400">
+              You&apos;ll set up your church details on the next step.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <Alert className="mb-5 bg-teal-500/10 border-teal-500/20">
-              <AlertDescription className="text-teal-400 text-sm">
-                New accounts require admin approval before activation. You&apos;ll be notified when your account is ready.
-              </AlertDescription>
-            </Alert>
+            <div className="flex items-center gap-2 bg-teal-500/10 border border-teal-500/20 rounded-lg px-3 py-2.5 mb-5">
+              <Zap className="h-4 w-4 text-teal-400 shrink-0" />
+              <p className="text-teal-300 text-xs font-medium">
+                You become the church admin — invite members after setup.
+              </p>
+            </div>
 
-            {/* Google OAuth */}
             <Button
               type="button"
               variant="outline"
@@ -164,18 +164,18 @@ export default function RegisterPage() {
                 <div className="w-full border-t border-slate-700" />
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="bg-slate-900 px-2 text-slate-500">or register with email</span>
+                <span className="bg-slate-900 px-2 text-slate-500">or sign up with email</span>
               </div>
             </div>
 
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="fullName" className="text-slate-300">Full Name <span className="text-red-400" aria-hidden="true">*</span></Label>
+                <Label htmlFor="fullName" className="text-slate-300">Your Name <span className="text-red-400" aria-hidden="true">*</span></Label>
                 <Input
                   id="fullName"
                   type="text"
                   autoComplete="name"
-                  placeholder="Your full name"
+                  placeholder="Pastor John Smith"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
@@ -188,7 +188,7 @@ export default function RegisterPage() {
                   id="email"
                   type="email"
                   autoComplete="email"
-                  placeholder="you@example.com"
+                  placeholder="pastor@yourchurch.org"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -202,7 +202,7 @@ export default function RegisterPage() {
                     id="password"
                     type={showPass ? 'text' : 'password'}
                     autoComplete="new-password"
-                    placeholder="Min 8 chars, uppercase, number, special char"
+                    placeholder="Min 8 chars, uppercase, number, symbol"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -214,7 +214,7 @@ export default function RegisterPage() {
                     onClick={() => setShowPass(!showPass)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
                   >
-                    {showPass ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+                    {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
@@ -224,16 +224,21 @@ export default function RegisterPage() {
                 disabled={loading}
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                {loading ? 'Creating Account…' : 'Create Account'}
+                {loading ? 'Creating Account…' : 'Start Free Trial'}
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
+            <p className="text-xs text-slate-600 text-center mt-4">
+              By signing up you agree to our{' '}
+              <Link href="/terms" className="text-slate-500 hover:text-slate-300 underline">Terms</Link>
+              {' '}and{' '}
+              <Link href="/privacy" className="text-slate-500 hover:text-slate-300 underline">Privacy Policy</Link>.
+            </p>
+
+            <div className="mt-5 text-center">
               <p className="text-sm text-slate-400">
                 Already have an account?{' '}
-                <Link href="/login" className="text-teal-400 hover:text-teal-300 font-medium">
-                  Sign in here
-                </Link>
+                <Link href="/login" className="text-teal-400 hover:text-teal-300 font-medium">Sign in</Link>
               </p>
             </div>
           </CardContent>
