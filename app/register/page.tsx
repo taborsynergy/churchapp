@@ -34,21 +34,32 @@ export default function RegisterPage() {
 
   async function handleGoogleSignUp() {
     setGoogleLoading(true);
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        skipBrowserRedirect: false,
-      },
-    });
-    if (error) {
-      toast({ title: 'Google sign-in failed', description: error.message, variant: 'destructive' });
+    console.log('[Google OAuth] starting, redirectTo:', `${window.location.origin}/auth/callback`);
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          skipBrowserRedirect: false,
+        },
+      });
+      console.log('[Google OAuth] result:', { data, error });
+      if (error) {
+        toast({ title: 'Google sign-in failed', description: error.message, variant: 'destructive' });
+        setGoogleLoading(false);
+        return;
+      }
+      if (data?.url) {
+        console.log('[Google OAuth] redirecting to:', data.url);
+        window.location.href = data.url;
+      } else {
+        console.warn('[Google OAuth] no url in data, no error either');
+        setGoogleLoading(false);
+      }
+    } catch (err) {
+      console.error('[Google OAuth] exception:', err);
+      toast({ title: 'Google sign-in failed', description: String(err), variant: 'destructive' });
       setGoogleLoading(false);
-      return;
-    }
-    // Manually redirect if Supabase didn't auto-redirect (fallback)
-    if (data?.url) {
-      window.location.href = data.url;
     }
   }
 
