@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,12 +24,22 @@ function GoogleIcon() {
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error === 'access_denied') {
+      toast({ title: 'Google sign-in cancelled', description: 'You cancelled the Google sign-in. Try again or use email.', variant: 'destructive' });
+    } else if (error) {
+      toast({ title: 'Sign-in error', description: error, variant: 'destructive' });
+    }
+  }, []);
 
   async function handleGoogleSignIn() {
     setGoogleLoading(true);
@@ -50,10 +60,14 @@ export default function LoginPage() {
     if (error) {
       toast({ title: 'Sign in failed', description: 'Invalid email or password. Please try again.', variant: 'destructive' });
     } else if (data.user) {
-      const { data: profile } = await supabase.from('church_users').select('role, status').eq('id', data.user.id).maybeSingle();
+      const { data: profile } = await supabase.from('church_users').select('role, status, church_id').eq('id', data.user.id).maybeSingle();
       if (profile?.status === 'suspended') {
         await supabase.auth.signOut();
         toast({ title: 'Account suspended', description: 'Your account has been suspended. Please contact the church administrator.', variant: 'destructive' });
+      } else if (!profile?.church_id) {
+        // New user who hasn't completed onboarding yet
+        router.push('/onboarding');
+        router.refresh();
       } else if (profile?.status === 'pending') {
         toast({ title: 'Account pending approval', description: 'Your registration is awaiting admin approval. You will be notified once approved.' });
         router.push('/');

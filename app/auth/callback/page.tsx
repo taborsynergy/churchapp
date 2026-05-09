@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Loader } from 'lucide-react';
 
 async function resolveRedirect(userId: string, email: string, meta: Record<string, any>): Promise<string> {
-  // Upsert church_users — ignoreDuplicates so existing data is preserved
   await supabase.from('church_users').upsert(
     {
       id: userId,
@@ -25,47 +24,53 @@ async function resolveRedirect(userId: string, email: string, meta: Record<strin
     .eq('id', userId)
     .maybeSingle();
 
-  // New user with no church yet → onboarding
   if (!profile?.church_id) return '/onboarding';
-
-  // Existing admin/staff → admin dashboard
   if (profile.role === 'admin' || profile.role === 'staff') return '/admin';
-
-  // Existing member → home
   return '/';
 }
 
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [message, setMessage] = useState('Signing you in…');
+  // Prevent double-redirect when both onAuthStateChange and getSession fire (e.g. Google OAuth)
+  const redirecting = useRef(false);
+
+  async function handleSession(userId: string, email: string, meta: Record<string, any>) {
+    if (redirecting.current) return;
+    redirecting.current = true;
+    setMessage('Setting up your account…');
+    try {
+      const dest = await resolveRedirect(userId, email, meta);
+      router.replace(dest);
+    } catch {
+      router.replace('/');
+    }
+  }
 
   useEffect(() => {
+    // Detect OAuth error params (e.g. user denied Google consent)
+    const params = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+    const errorParam = params.get('error') ?? hashParams.get('error');
+    if (errorParam) {
+      router.replace(`/login?error=${encodeURIComponent(errorParam)}`);
+      return;
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         router.replace('/reset-password');
         return;
       }
-
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-        setMessage('Setting up your account…');
-        const dest = await resolveRedirect(
-          session.user.id,
-          session.user.email ?? '',
-          session.user.user_metadata ?? {}
-        );
-        router.replace(dest);
+        await handleSession(session.user.id, session.user.email ?? '', session.user.user_metadata ?? {});
       }
     });
 
-    // Fallback for already-active sessions (page reload after OAuth)
+    // Fallback: session already established before listener fires (common with Google OAuth PKCE)
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        const dest = await resolveRedirect(
-          session.user.id,
-          session.user.email ?? '',
-          session.user.user_metadata ?? {}
-        );
-        router.replace(dest);
+        await handleSession(session.user.id, session.user.email ?? '', session.user.user_metadata ?? {});
       }
     });
 
