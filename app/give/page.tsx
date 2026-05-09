@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { GivingFund } from '@/lib/types';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -43,7 +42,6 @@ function loadRazorpayScript(): Promise<void> {
 }
 
 export default function GivePage() {
-  const router = useRouter();
   const { user, session, profile, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
@@ -59,10 +57,7 @@ export default function GivePage() {
   const [donorEmail, setDonorEmail] = useState('');
   const [donated, setDonated] = useState(false);
 
-  useEffect(() => {
-    if (!authLoading && !user) router.replace('/login');
-  }, [user, authLoading, router]);
-
+  // Guests are intentionally allowed — PendingApprovalScreen guards active-member check below
   useEffect(() => {
     async function load() {
       const [{ data: f }, { data: d }] = await Promise.all([

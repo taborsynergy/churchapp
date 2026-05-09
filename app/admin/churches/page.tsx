@@ -24,7 +24,7 @@ interface Church {
 }
 
 export default function ChurchesAdminPage() {
-  const { user, session, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [churches, setChurches] = useState<Church[]>([]);
@@ -34,7 +34,7 @@ export default function ChurchesAdminPage() {
 
   useEffect(() => {
     if (!authLoading && (!user || user.email !== SUPER_ADMIN_EMAIL)) {
-      router.replace('/dashboard');
+      router.replace('/admin');
     }
   }, [user, authLoading, router]);
 
