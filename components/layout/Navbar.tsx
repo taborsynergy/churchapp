@@ -25,6 +25,7 @@ const navLinks = [
   { href: '/prayer', label: 'Prayer' },
   { href: '/announcements', label: 'News' },
   { href: '/give', label: 'Give' },
+  { href: '/pricing', label: 'Pricing' },
 ];
 
 export default function Navbar() {
