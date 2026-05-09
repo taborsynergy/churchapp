@@ -21,9 +21,9 @@ export function proxy(req: NextRequest) {
   crypto.getRandomValues(nonceBytes);
   const nonce = btoa(Array.from(nonceBytes, (b) => String.fromCharCode(b)).join(''));
 
-  const scriptSrc = isDev
-    ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://js.stripe.com`
-    : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https://checkout.razorpay.com https://js.stripe.com`;
+  // nonce kept for future use but strict-dynamic removed — Next.js inline scripts
+  // don't receive the nonce via context, so strict-dynamic breaks the app in prod.
+  const scriptSrc = `script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://js.stripe.com https://browser.sentry-cdn.com`;
 
   const csp = [
     "default-src 'self'",
@@ -31,12 +31,13 @@ export function proxy(req: NextRequest) {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com https://avatars.githubusercontent.com",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.razorpay.com https://bible-api.com ws://localhost:* http://localhost:*",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.razorpay.com https://bible-api.com https://accounts.google.com https://oauth2.googleapis.com https://sentry.io https://*.sentry.io ws://localhost:* http://localhost:*",
+    "worker-src blob: 'self'",
     "frame-src https://js.stripe.com https://hooks.stripe.com https://api.razorpay.com",
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    "form-action 'self' https://accounts.google.com",
     ...(isDev ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
 
