@@ -203,7 +203,7 @@ export default function PricingPage() {
             <p className="text-slate-400 text-sm">Pay yearly and get 2 months free on any plan. Email us to switch.</p>
           </div>
           <Button asChild className="bg-teal-500 hover:bg-teal-400 text-white font-semibold shrink-0">
-            <a href="mailto:admin@taborsynergy.com?subject=Annual billing enquiry">Get Annual Pricing</a>
+            <Link href="/support">Get Annual Pricing</Link>
           </Button>
         </div>
 
@@ -231,12 +231,19 @@ export default function PricingPage() {
             We offer custom pricing for seminaries, bible colleges, and large diocese networks.
           </p>
           <p className="text-slate-500 text-sm mb-6">Usually reply within 4 hours on business days.</p>
-          <Button asChild className="bg-teal-500 hover:bg-teal-400 text-white font-semibold">
-            <a href="mailto:admin@taborsynergy.com?subject=ChurchConnect pricing enquiry">
-              <Mail className="h-4 w-4 mr-2" />
-              Contact admin@taborsynergy.com
-            </a>
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button asChild className="bg-teal-500 hover:bg-teal-400 text-white font-semibold">
+              <Link href="/support">
+                <Mail className="h-4 w-4 mr-2" />
+                Contact Support
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="border-slate-600 text-slate-200 hover:bg-slate-800 bg-transparent">
+              <a href="mailto:admin@taborsynergy.com?subject=ChurchConnect pricing enquiry">
+                admin@taborsynergy.com
+              </a>
+            </Button>
+          </div>
         </div>
       </div>
     </main>
