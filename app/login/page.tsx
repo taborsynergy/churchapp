@@ -43,13 +43,20 @@ export default function LoginPage() {
 
   async function handleGoogleSignIn() {
     setGoogleLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        skipBrowserRedirect: false,
+      },
     });
     if (error) {
       toast({ title: 'Google sign-in failed', description: error.message, variant: 'destructive' });
       setGoogleLoading(false);
+      return;
+    }
+    if (data?.url) {
+      window.location.href = data.url;
     }
   }
 
