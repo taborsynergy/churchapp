@@ -1,5 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase-server';
 import type { Announcement } from '@/lib/types';
+import { AuthGuard } from '@/components/ui/auth-guard';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Megaphone, Clock, TriangleAlert as AlertTriangle, Info, ChevronUp } from 'lucide-react';
@@ -34,7 +35,7 @@ export default async function AnnouncementsPage() {
     return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
   });
 
-  return (
+  return (<AuthGuard>
     <div className="min-h-screen bg-slate-950">
       <div className="bg-gradient-to-br from-slate-900 to-teal-950 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -84,5 +85,5 @@ export default async function AnnouncementsPage() {
         )}
       </div>
     </div>
-  );
+  </AuthGuard>);
 }

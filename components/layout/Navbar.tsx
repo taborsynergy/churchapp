@@ -60,7 +60,7 @@ export default function Navbar() {
           </Link>
 
           <nav className="hidden lg:flex items-center gap-0.5">
-            {user && navLinks.map((link) => (
+            {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -137,7 +137,7 @@ export default function Navbar() {
               </SheetTrigger>
               <SheetContent side="right" className="w-72 pt-10 bg-slate-950 border-slate-700">
                 <div className="flex flex-col gap-1">
-                  {user && navLinks.map((link) => (
+                  {navLinks.map((link) => (
                     <Link
                       key={link.href}
                       href={link.href}

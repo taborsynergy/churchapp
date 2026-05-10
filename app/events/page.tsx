@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar, MapPin, Clock, Users, Check, Loader as Loader2 } from 'lucide-react';
+import { AuthGuard } from '@/components/ui/auth-guard';
 import { format, isPast } from 'date-fns';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -90,7 +91,7 @@ export default function EventsPage() {
 
   const filtered = events.filter((e) => category === 'all' || e.category === category);
 
-  return (
+  return (<AuthGuard>
     <div className="min-h-screen bg-slate-950">
       <div className="bg-gradient-to-br from-slate-900 to-slate-900 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -204,5 +205,5 @@ export default function EventsPage() {
         )}
       </div>
     </div>
-  );
+  </AuthGuard>);
 }

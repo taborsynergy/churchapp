@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { HandHeart, Shield, Heart, RefreshCw, Loader as Loader2, IndianRupee, DollarSign } from 'lucide-react';
+import { AuthGuard } from '@/components/ui/auth-guard';
 import { PendingApprovalScreen } from '@/components/ui/pending-approval';
 
 type Currency = 'INR' | 'USD';
@@ -189,7 +190,7 @@ export default function GivePage() {
   const symbol = currency === 'INR' ? '₹' : '$';
   const presets = PRESET_AMOUNTS[currency];
 
-  return (
+  return (<AuthGuard>
     <div className="min-h-screen bg-slate-950">
       <div className="bg-gradient-to-br from-slate-900 to-slate-950 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -366,5 +367,5 @@ export default function GivePage() {
         </div>
       </div>
     </div>
-  );
+  </AuthGuard>);
 }

@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Heart, Plus, Loader as Loader2, User, Clock, Trash2, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { AuthGuard } from '@/components/ui/auth-guard';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PendingApprovalScreen } from '@/components/ui/pending-approval';
 import { adminWrite } from '@/lib/admin-write';
@@ -177,7 +178,7 @@ export default function PrayerPage() {
     return <PendingApprovalScreen />;
   }
 
-  return (
+  return (<AuthGuard>
     <div className="min-h-screen bg-slate-950">
       {/* Mark Answered dialog for admin/staff */}
       <Dialog open={answerOpen} onOpenChange={setAnswerOpen}>
@@ -513,5 +514,5 @@ export default function PrayerPage() {
         onCancel={() => setConfirmDlg((c) => ({ ...c, open: false }))}
       />
     </div>
-  );
+  </AuthGuard>);
 }

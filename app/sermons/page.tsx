@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase-server';
 import { Badge } from '@/components/ui/badge';
 import { SermonsClient } from './sermons-client';
+import { AuthGuard } from '@/components/ui/auth-guard';
 
 export const revalidate = 60;
 
@@ -20,7 +21,7 @@ export default async function SermonsPage() {
           <p className="text-slate-300 max-w-xl">Revisit past messages, explore sermon series, and grow deeper in your faith through God&apos;s Word.</p>
         </div>
       </div>
-      <SermonsClient sermons={sermons ?? []} series={series ?? []} />
+      <AuthGuard><SermonsClient sermons={sermons ?? []} series={series ?? []} /></AuthGuard>
     </div>
   );
 }

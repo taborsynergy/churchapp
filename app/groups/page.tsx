@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Users, MapPin, Clock, Check, Loader as Loader2 } from 'lucide-react';
+import { AuthGuard } from '@/components/ui/auth-guard';
 import { PendingApprovalScreen } from '@/components/ui/pending-approval';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -84,7 +85,7 @@ export default function GroupsPage() {
 
   const filtered = groups.filter((g) => category === 'all' || g.category === category);
 
-  return (
+  return (<AuthGuard>
     <div className="min-h-screen bg-slate-950">
       <div className="bg-gradient-to-br from-slate-900 to-slate-900 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -185,5 +186,5 @@ export default function GroupsPage() {
         )}
       </div>
     </div>
-  );
+  </AuthGuard>);
 }
