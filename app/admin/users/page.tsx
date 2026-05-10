@@ -17,6 +17,7 @@ import { adminWrite } from '@/lib/admin-write';
 import { Search, UserCheck, UserX, Users, Loader as Loader2, UserPlus, Ban } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { PLAN_DISPLAY } from '@/lib/licensing/types';
 
 export default function AdminUsersPage() {
   const router = useRouter();
@@ -101,7 +102,7 @@ export default function AdminUsersPage() {
       if (activeCount >= license.seat_limit) {
         toast({
           title: 'Seat limit reached',
-          description: `Your ${license.plan} plan allows ${license.seat_limit} active members. Upgrade to add more.`,
+          description: `Your ${PLAN_DISPLAY[license.plan as keyof typeof PLAN_DISPLAY] ?? license.plan} plan allows ${license.seat_limit} active members. Upgrade to add more.`,
           variant: 'destructive',
         });
         return;

@@ -38,21 +38,26 @@ export default function LicenseExpiredPage() {
             Include your <strong className="text-slate-200">church name</strong> and <strong className="text-slate-200">plan</strong> in the note.
             Access is restored within a few hours of payment.
           </p>
-          <div className="grid grid-cols-3 gap-2 mb-4 text-xs text-center">
+          <div className="grid grid-cols-2 gap-2 mb-4 text-xs text-center">
             <div className="bg-slate-800 rounded-lg p-2">
               <p className="text-slate-400">Grow</p>
-              <p className="text-white font-bold">$12/mo</p>
-              <p className="text-slate-500">₹999/mo</p>
+              <p className="text-white font-bold">$29/mo</p>
+              <p className="text-slate-500">₹2,499/mo · 100 members</p>
             </div>
             <div className="bg-teal-500/10 border border-teal-500/30 rounded-lg p-2">
               <p className="text-teal-400">Parish ⭐</p>
-              <p className="text-white font-bold">$29/mo</p>
-              <p className="text-slate-500">₹2,499/mo</p>
+              <p className="text-white font-bold">$49/mo</p>
+              <p className="text-slate-500">₹3,999/mo · 300 members</p>
             </div>
             <div className="bg-slate-800 rounded-lg p-2">
               <p className="text-slate-400">Diocese</p>
-              <p className="text-white font-bold">$79/mo</p>
-              <p className="text-slate-500">₹6,999/mo</p>
+              <p className="text-white font-bold">$99/mo</p>
+              <p className="text-slate-500">₹7,999/mo · 500 members</p>
+            </div>
+            <div className="bg-slate-800 rounded-lg p-2">
+              <p className="text-slate-400">Network</p>
+              <p className="text-white font-bold">$149/mo</p>
+              <p className="text-slate-500">₹11,999/mo · 1,000 members</p>
             </div>
           </div>
           <a

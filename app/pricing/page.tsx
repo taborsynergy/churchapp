@@ -16,10 +16,35 @@ const plans = [
     name: 'Grow',
     badge: null,
     highlight: false,
-    priceINR: '₹999',
-    priceUSD: '$12',
+    priceINR: '₹2,499',
+    priceUSD: '$29',
     periodLabel: '/ month',
     description: 'Everything a growing church needs.',
+    limit: 'Up to 100 members',
+    cta: 'Start 14-Day Free Trial',
+    ctaHref: '/register',
+    features: {
+      'Member Directory (100 members)': true,
+      'Announcements': true,
+      'Events & RSVPs': true,
+      'Prayer Wall': true,
+      'Sermons (upload + stream)': true,
+      'Small Groups': true,
+      'Online Giving (Razorpay + Stripe)': true,
+      'Podcast Episodes': false,
+      'Bible Module': false,
+      'Multi-Campus Management': false,
+      'Priority Support': false,
+    },
+  },
+  {
+    name: 'Parish',
+    badge: 'Most Popular',
+    highlight: true,
+    priceINR: '₹3,999',
+    priceUSD: '$49',
+    periodLabel: '/ month',
+    description: 'Full platform for established parishes.',
     limit: 'Up to 300 members',
     cta: 'Start 14-Day Free Trial',
     ctaHref: '/register',
@@ -31,32 +56,9 @@ const plans = [
       'Sermons (upload + stream)': true,
       'Small Groups': true,
       'Online Giving (Razorpay + Stripe)': true,
-      'Podcast Episodes': false,
-      'Bible Module': false,
-      'Priority Support': false,
-    },
-  },
-  {
-    name: 'Parish',
-    badge: 'Most Popular',
-    highlight: true,
-    priceINR: '₹2,499',
-    priceUSD: '$29',
-    periodLabel: '/ month',
-    description: 'Full platform for established parishes.',
-    limit: 'Up to 1,500 members',
-    cta: 'Start 14-Day Free Trial',
-    ctaHref: '/register',
-    features: {
-      'Member Directory (1,500 members)': true,
-      'Announcements': true,
-      'Events & RSVPs': true,
-      'Prayer Wall': true,
-      'Sermons (upload + stream)': true,
-      'Small Groups': true,
-      'Online Giving (Razorpay + Stripe)': true,
       'Podcast Episodes': true,
       'Bible Module': true,
+      'Multi-Campus Management': false,
       'Priority Support': false,
     },
   },
@@ -64,15 +66,15 @@ const plans = [
     name: 'Diocese',
     badge: null,
     highlight: false,
-    priceINR: '₹6,999',
-    priceUSD: '$79',
+    priceINR: '₹7,999',
+    priceUSD: '$99',
     periodLabel: '/ month',
     description: 'Multi-campus management for dioceses.',
-    limit: 'Unlimited members · Multi-church',
+    limit: 'Up to 500 members',
     cta: 'Start 14-Day Free Trial',
     ctaHref: '/register',
     features: {
-      'Unlimited Members': true,
+      'Member Directory (500 members)': true,
       'Announcements': true,
       'Events & RSVPs': true,
       'Prayer Wall': true,
@@ -81,6 +83,32 @@ const plans = [
       'Online Giving (Razorpay + Stripe)': true,
       'Podcast Episodes': true,
       'Bible Module': true,
+      'Multi-Campus Management': true,
+      'Priority Support': false,
+    },
+  },
+  {
+    name: 'Network',
+    badge: null,
+    highlight: false,
+    priceINR: '₹11,999',
+    priceUSD: '$149',
+    periodLabel: '/ month',
+    description: 'For large churches & multi-site networks.',
+    limit: 'Up to 1,000 members',
+    cta: 'Start 14-Day Free Trial',
+    ctaHref: '/register',
+    features: {
+      'Member Directory (1,000 members)': true,
+      'Announcements': true,
+      'Events & RSVPs': true,
+      'Prayer Wall': true,
+      'Sermons (upload + stream)': true,
+      'Small Groups': true,
+      'Online Giving (Razorpay + Stripe)': true,
+      'Podcast Episodes': true,
+      'Bible Module': true,
+      'Multi-Campus Management': true,
       'Priority Support': true,
     },
   },
@@ -97,7 +125,7 @@ export default function PricingPage() {
         {' '}· First 25 churches get Parish plan at Grow price — locked forever.
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-20">
+      <div className="max-w-7xl mx-auto px-4 py-20">
         {/* Header */}
         <div className="text-center mb-14">
           <Badge className="mb-4 bg-teal-500/20 text-teal-400 border-teal-500/30">Pricing</Badge>
@@ -111,7 +139,7 @@ export default function PricingPage() {
         </div>
 
         {/* Plans grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-16">
           {plans.map((plan) => (
             <div
               key={plan.name}
@@ -136,11 +164,9 @@ export default function PricingPage() {
                   <span className="text-slate-400 text-xs ml-1">{plan.periodLabel}</span>
                 </div>
                 <p className="text-slate-500 text-xs">{plan.priceINR}{plan.periodLabel} INR</p>
-                {plan.name !== 'Free' && (
-                  <p className="text-teal-400 text-xs mt-1 font-medium flex items-center gap-1">
-                    <Zap className="h-3 w-3" /> 14-day free trial
-                  </p>
-                )}
+                <p className="text-teal-400 text-xs mt-1 font-medium flex items-center gap-1">
+                  <Zap className="h-3 w-3" /> 14-day free trial
+                </p>
                 <p className="text-slate-400 text-xs mt-2 font-medium">{plan.limit}</p>
               </div>
 

@@ -1,4 +1,4 @@
-export type PlanName = 'starter' | 'church' | 'diocese';
+export type PlanName = 'starter' | 'church' | 'diocese' | 'network';
 export type LicenseStatus = 'trial' | 'active' | 'grace' | 'expired' | 'suspended';
 
 export interface License {
@@ -17,15 +17,19 @@ export interface License {
 
 export const PLAN_LIMITS: Record<PlanName, { seats: number; modules: string[] }> = {
   starter: {
-    seats: 300,
+    seats: 100,
     modules: ['sermons', 'events', 'announcements', 'prayer', 'directory', 'give', 'groups', 'attendance'],
   },
   church: {
-    seats: 1500,
+    seats: 300,
     modules: ['sermons', 'events', 'announcements', 'prayer', 'directory', 'give', 'groups', 'attendance', 'podcast', 'bible'],
   },
   diocese: {
-    seats: -1, // unlimited
+    seats: 500,
+    modules: ['sermons', 'events', 'announcements', 'prayer', 'directory', 'give', 'groups', 'attendance', 'podcast', 'bible', 'multi_campus'],
+  },
+  network: {
+    seats: 1000,
     modules: ['sermons', 'events', 'announcements', 'prayer', 'directory', 'give', 'groups', 'attendance', 'podcast', 'bible', 'multi_campus'],
   },
 };
@@ -34,6 +38,7 @@ export const PLAN_DISPLAY: Record<PlanName, string> = {
   starter: 'Grow',
   church: 'Parish',
   diocese: 'Diocese',
+  network: 'Network',
 };
 
 export const TRIAL_DAYS = 14;

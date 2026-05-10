@@ -24,7 +24,7 @@ interface LicenseRow {
   seat_limit: number;
 }
 
-const PLAN_SEATS: Record<string, number> = { starter: 200, church: 2000, diocese: 999999 };
+const PLAN_SEATS: Record<string, number> = { starter: 100, church: 300, diocese: 500, network: 1000 };
 
 export default function LicensesAdminPage() {
   const { user, loading: authLoading } = useAuth();
@@ -141,8 +141,13 @@ export default function LicensesAdminPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {['starter', 'church', 'diocese'].map((p) => (
-                            <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
+                          {[
+                            { value: 'starter', label: 'Grow (100)' },
+                            { value: 'church',  label: 'Parish (300)' },
+                            { value: 'diocese', label: 'Diocese (500)' },
+                            { value: 'network', label: 'Network (1000)' },
+                          ].map((p) => (
+                            <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
