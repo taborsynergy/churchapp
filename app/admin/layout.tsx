@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { supabase } from '@/lib/supabase';
 import { LayoutDashboard, Users, DollarSign, BookOpen, Calendar, Megaphone, UsersRound, ClipboardList, Building2, ShieldCheck, Loader as Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const SUPER_ADMIN_EMAIL = 'admin@taborsynergy.com';
+const GRACE_DAYS = 3;
 
 const NAV = [
   { href: '/admin',               label: 'Dashboard',    icon: LayoutDashboard, adminOnly: false, superOnly: false },
@@ -30,6 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
 
+  // Auth guard
   useEffect(() => {
     if (loading) return;
     if (!user) {
@@ -40,6 +43,52 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.replace('/');
     }
   }, [user, profile, loading]);
+
+  // License enforcement — super-admin is never blocked
+  useEffect(() => {
+    if (loading || !profile || isSuperAdmin) return;
+    const churchId = profile.church_id;
+    if (!churchId) return;
+
+    supabase
+      .from('licenses')
+      .select('status, trial_ends_at, expires_at')
+      .eq('church_id', churchId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        const now = new Date();
+
+        // Suspended — always block
+        if (data.status === 'suspended') {
+          router.replace('/license-expired');
+          return;
+        }
+
+        // Already marked expired in DB
+        if (data.status === 'expired') {
+          router.replace('/license-expired');
+          return;
+        }
+
+        // Trial — block if ended (or if trial_ends_at missing, treat as expired)
+        if (data.status === 'trial') {
+          if (!data.trial_ends_at || new Date(data.trial_ends_at) < now) {
+            router.replace('/trial-expired');
+          }
+          return;
+        }
+
+        // Active / grace — block once grace period is over
+        if (data.status === 'active' || data.status === 'grace') {
+          if (data.expires_at) {
+            const graceEnd = new Date(data.expires_at);
+            graceEnd.setDate(graceEnd.getDate() + GRACE_DAYS);
+            if (now > graceEnd) router.replace('/license-expired');
+          }
+        }
+      });
+  }, [profile, loading, isSuperAdmin]);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-950"><Loader2 className="h-8 w-8 animate-spin text-teal-400" /></div>;

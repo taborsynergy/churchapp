@@ -12,58 +12,74 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const webhookSecret = Deno.env.get("RAZORPAY_WEBHOOK_SECRET");
-  if (!webhookSecret) {
-    return new Response(JSON.stringify({ error: "Webhook secret not configured" }), {
-      status: 503, headers: jsonHeaders,
-    });
-  }
-
-  const signature = req.headers.get("x-razorpay-signature");
-  if (!signature) {
-    return new Response(JSON.stringify({ error: "Missing signature" }), {
-      status: 400, headers: jsonHeaders,
-    });
-  }
-
-  const body = await req.text();
-
-  // Verify HMAC-SHA256 signature
-  const expected = createHmac("sha256", webhookSecret).update(body).digest("hex");
-  if (signature !== expected) {
-    return new Response(JSON.stringify({ error: "Invalid signature" }), {
-      status: 400, headers: jsonHeaders,
-    });
-  }
-
-  let event: Record<string, unknown>;
-  try { event = JSON.parse(body); }
-  catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-      status: 400, headers: jsonHeaders,
-    });
-  }
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-  );
-
   try {
+    // Each church registers: https://<project>.supabase.co/functions/v1/razorpay-webhook?church_id=<uuid>
+    const url = new URL(req.url);
+    const churchId = url.searchParams.get("church_id");
+
+    if (!churchId) {
+      return new Response(JSON.stringify({ error: "Missing church_id query parameter." }), {
+        status: 400, headers: jsonHeaders,
+      });
+    }
+
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
+
+    // Fetch this church's Razorpay webhook secret
+    const { data: keys } = await serviceClient
+      .from("church_payment_keys")
+      .select("razorpay_webhook_secret")
+      .eq("church_id", churchId)
+      .maybeSingle();
+
+    if (!keys?.razorpay_webhook_secret) {
+      return new Response(JSON.stringify({ error: "Razorpay not configured for this church." }), {
+        status: 503, headers: jsonHeaders,
+      });
+    }
+
+    const signature = req.headers.get("x-razorpay-signature");
+    if (!signature) {
+      return new Response(JSON.stringify({ error: "Missing x-razorpay-signature header." }), {
+        status: 400, headers: jsonHeaders,
+      });
+    }
+
+    const body = await req.text();
+
+    // Verify HMAC-SHA256 signature using this church's webhook secret
+    const expected = createHmac("sha256", keys.razorpay_webhook_secret).update(body).digest("hex");
+    if (signature !== expected) {
+      return new Response(JSON.stringify({ error: "Invalid signature." }), {
+        status: 400, headers: jsonHeaders,
+      });
+    }
+
+    let event: Record<string, unknown>;
+    try { event = JSON.parse(body); }
+    catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+        status: 400, headers: jsonHeaders,
+      });
+    }
+
     const entity = (event.payload as any)?.payment?.entity ?? {};
     const orderId: string = entity.order_id ?? "";
     const paymentId: string = entity.id ?? "";
 
     switch (event.event) {
       case "payment.captured": {
-        await supabase
+        await serviceClient
           .from("donations")
           .update({ status: "completed", razorpay_payment_id: paymentId })
           .eq("razorpay_order_id", orderId);
         break;
       }
       case "payment.failed": {
-        await supabase
+        await serviceClient
           .from("donations")
           .update({ status: "failed" })
           .eq("razorpay_order_id", orderId);
@@ -73,7 +89,7 @@ Deno.serve(async (req: Request) => {
         const refundEntity = (event.payload as any)?.refund?.entity ?? {};
         const refundPaymentId: string = refundEntity.payment_id ?? "";
         if (refundPaymentId) {
-          await supabase
+          await serviceClient
             .from("donations")
             .update({ status: "refunded" })
             .eq("razorpay_payment_id", refundPaymentId);

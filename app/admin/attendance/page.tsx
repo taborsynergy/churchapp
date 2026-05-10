@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { ClipboardList, Check, X, Loader as Loader2, Save } from 'lucide-react';
+import { useAuth } from '@/components/providers/AuthProvider';
+import { LockedModule } from '@/components/ui/locked-module';
 import { format } from 'date-fns';
 
 function limitWords(text: string, max = 20): string {
@@ -18,6 +20,7 @@ function limitWords(text: string, max = 20): string {
 }
 
 export default function AdminAttendancePage() {
+  const { canAccess } = useAuth();
   const { toast } = useToast();
   const [events, setEvents] = useState<any[]>([]);
   const [members, setMembers] = useState<UserProfile[]>([]);
@@ -98,6 +101,8 @@ export default function AdminAttendancePage() {
 
   const presentCount = filteredMembers.filter((m) => attendance[m.id]).length;
   const selectedEventData = events.find((e) => e.id === selectedEvent);
+
+  if (!canAccess('attendance')) return <LockedModule moduleName="Attendance" requiredPlan="parish" />;
 
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-teal-400" /></div>;
 

@@ -17,17 +17,23 @@ export interface License {
 
 export const PLAN_LIMITS: Record<PlanName, { seats: number; modules: string[] }> = {
   starter: {
-    seats: 200,
-    modules: ['sermons', 'events', 'announcements', 'prayer', 'directory', 'give'],
+    seats: 300,
+    modules: ['sermons', 'events', 'announcements', 'prayer', 'directory', 'give', 'groups', 'attendance'],
   },
   church: {
-    seats: 2000,
-    modules: ['sermons', 'events', 'announcements', 'prayer', 'directory', 'give', 'groups', 'podcast', 'bible'],
+    seats: 1500,
+    modules: ['sermons', 'events', 'announcements', 'prayer', 'directory', 'give', 'groups', 'attendance', 'podcast', 'bible'],
   },
   diocese: {
     seats: -1, // unlimited
-    modules: ['sermons', 'events', 'announcements', 'prayer', 'directory', 'give', 'groups', 'podcast', 'bible', 'multi_campus'],
+    modules: ['sermons', 'events', 'announcements', 'prayer', 'directory', 'give', 'groups', 'attendance', 'podcast', 'bible', 'multi_campus'],
   },
+};
+
+export const PLAN_DISPLAY: Record<PlanName, string> = {
+  starter: 'Grow',
+  church: 'Parish',
+  diocese: 'Diocese',
 };
 
 export const TRIAL_DAYS = 14;

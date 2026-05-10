@@ -17,12 +17,13 @@ import { DollarSign, TrendingUp, Users, RefreshCw, Loader as Loader2, Plus, Tras
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { LockedModule } from '@/components/ui/locked-module';
 import { adminWrite } from '@/lib/admin-write';
 
 const FUND_BLANK = { name: '', description: '', goal_amount: '', is_active: true };
 
 export default function AdminGivingPage() {
-  const { profile } = useAuth();
+  const { profile, canAccess } = useAuth();
   const { toast } = useToast();
 
   const [donations, setDonations] = useState<Donation[]>([]);
@@ -105,6 +106,8 @@ export default function AdminGivingPage() {
     { value: 'ytd', label: 'Year to Date' },
     { value: 'all', label: 'All Time' },
   ];
+
+  if (!canAccess('give')) return <LockedModule moduleName="Giving" requiredPlan="parish" />;
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-[50vh]"><Loader2 className="h-8 w-8 animate-spin text-teal-400" /></div>;

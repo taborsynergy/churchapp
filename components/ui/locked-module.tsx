@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button';
 
 interface LockedModuleProps {
   moduleName: string;
-  requiredPlan?: 'church' | 'diocese';
+  requiredPlan?: 'parish' | 'diocese';
 }
 
-export function LockedModule({ moduleName, requiredPlan = 'church' }: LockedModuleProps) {
-  const planLabel = requiredPlan === 'diocese' ? 'Diocese' : 'Church';
+export function LockedModule({ moduleName, requiredPlan = 'parish' }: LockedModuleProps) {
+  const planLabel = requiredPlan === 'diocese' ? 'Diocese' : 'Parish';
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
       <div className="text-center max-w-sm">

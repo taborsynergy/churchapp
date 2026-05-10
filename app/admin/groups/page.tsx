@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { LockedModule } from '@/components/ui/locked-module';
 import type { UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +23,7 @@ const CATEGORIES = ['general', 'bible_study', 'youth', 'women', 'men', 'couples'
 const BLANK = { name: '', description: '', meeting_time: '', location: '', category: 'general', max_members: '', is_published: true };
 
 export default function AdminGroupsPage() {
-  const { profile: currentProfile } = useAuth();
+  const { profile: currentProfile, canAccess } = useAuth();
   const { toast } = useToast();
   const [groups, setGroups] = useState<any[]>([]);
   const [members, setMembers] = useState<UserProfile[]>([]);
@@ -235,6 +236,8 @@ export default function AdminGroupsPage() {
   }
 
   const availableToAdd = members.filter((m) => !groupMembers.some((gm: any) => gm.user_id === m.id));
+
+  if (!canAccess('groups')) return <LockedModule moduleName="Small Groups" requiredPlan="parish" />;
 
   return (
     <div className="p-6 lg:p-8">

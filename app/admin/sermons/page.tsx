@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Pencil, Loader as Loader2, BookOpen, ListVideo, Upload, X } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { LockedModule } from '@/components/ui/locked-module';
 import { adminWrite } from '@/lib/admin-write';
 
 const BLANK = { title: '', description: '', pastor: '', series_id: 'none', video_url: '', audio_url: '', thumbnail_url: '', scripture_reference: '', duration_minutes: 0, is_published: false };
@@ -31,7 +32,7 @@ function isValidUrl(value: string): boolean {
 }
 
 export default function AdminSermonsPage() {
-  const { profile } = useAuth();
+  const { profile, canAccess } = useAuth();
   const { toast } = useToast();
   const [sermons, setSermons] = useState<Sermon[]>([]);
   const [series, setSeries] = useState<SermonSeries[]>([]);
@@ -164,6 +165,8 @@ export default function AdminSermonsPage() {
       },
     });
   }
+
+  if (!canAccess('sermons')) return <LockedModule moduleName="Sermons" requiredPlan="parish" />;
 
   return (
     <div className="p-6 lg:p-8">

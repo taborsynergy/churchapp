@@ -40,23 +40,27 @@ export function TrialBanner() {
 
   if (dismissed || !license) return null;
   if (license.status === 'active' && (license.daysLeft === null || license.daysLeft > 7)) return null;
-  if (license.status === 'expired' || license.status === 'suspended') return null;
 
   const isTrial = license.status === 'trial';
   const isGrace = license.status === 'grace';
-  const urgentColor = (license.daysLeft !== null && license.daysLeft <= 2) || isGrace
+  const isExpired = license.status === 'expired' || license.status === 'suspended';
+  const daysLeftSafe = license.daysLeft !== null ? Math.max(0, license.daysLeft) : null;
+
+  const urgentColor = isExpired || (daysLeftSafe !== null && daysLeftSafe <= 2) || isGrace
     ? 'bg-red-500/10 border-red-500/30 text-red-300'
     : 'bg-amber-500/10 border-amber-500/30 text-amber-300';
 
   let message = '';
-  if (isTrial) {
-    message = license.daysLeft !== null && license.daysLeft >= 0
-      ? `Your free trial ends in ${license.daysLeft} day${license.daysLeft !== 1 ? 's' : ''}.`
+  if (isExpired) {
+    message = 'Your licence has expired. Renew now to restore access.';
+  } else if (isTrial) {
+    message = daysLeftSafe !== null && daysLeftSafe > 0
+      ? `Your free trial ends in ${daysLeftSafe} day${daysLeftSafe !== 1 ? 's' : ''}.`
       : 'Your free trial has ended.';
   } else if (isGrace) {
-    message = `Your licence expired — grace period ending${license.daysLeft !== null ? ` in ${license.daysLeft} day${license.daysLeft !== 1 ? 's' : ''}` : ''}.`;
+    message = `Your licence expired — grace period ending${daysLeftSafe !== null ? ` in ${daysLeftSafe} day${daysLeftSafe !== 1 ? 's' : ''}` : ''}.`;
   } else {
-    message = `Your licence renews${license.daysLeft !== null ? ` in ${license.daysLeft} day${license.daysLeft !== 1 ? 's' : ''}` : ' soon'}.`;
+    message = `Your licence renews${daysLeftSafe !== null ? ` in ${daysLeftSafe} day${daysLeftSafe !== 1 ? 's' : ''}` : ' soon'}.`;
   }
 
   return (

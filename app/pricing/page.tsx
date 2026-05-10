@@ -6,36 +6,12 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Plans & Pricing | ChurchConnect by Tabor Synergy',
-  description: 'Simple, transparent pricing for every church. Start free — no credit card required. Serve in ₹ or $.',
+  description: 'Simple, transparent pricing for every church. 14-day free trial — no credit card required. Serve in ₹ or $.',
 };
 
 export const revalidate = 3600;
 
 const plans = [
-  {
-    name: 'Free',
-    badge: null,
-    highlight: false,
-    priceINR: '₹0',
-    priceUSD: '$0',
-    periodLabel: '/ month',
-    description: 'For small congregations just getting started.',
-    limit: 'Up to 50 members',
-    cta: 'Get Started Free',
-    ctaHref: '/register',
-    features: {
-      'Member Directory (50 members)': true,
-      'Announcements': true,
-      'Events': true,
-      'Prayer Wall': true,
-      'Sermons': false,
-      'Small Groups': false,
-      'Online Giving (Razorpay + Stripe)': false,
-      'Podcast Episodes': false,
-      'Bible Module': false,
-      'Priority Support': false,
-    },
-  },
   {
     name: 'Grow',
     badge: null,
@@ -135,7 +111,7 @@ export default function PricingPage() {
         </div>
 
         {/* Plans grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-16">
           {plans.map((plan) => (
             <div
               key={plan.name}
@@ -211,7 +187,7 @@ export default function PricingPage() {
         <div className="text-center mb-14">
           <p className="text-slate-500 text-sm mb-4">Secure payments via</p>
           <div className="flex flex-wrap justify-center gap-3 items-center">
-            {['Razorpay', 'Stripe', 'UPI', 'Visa', 'Mastercard', 'Net Banking'].map((logo) => (
+            {['PayPal', 'Razorpay', 'Stripe', 'UPI', 'Visa', 'Mastercard', 'Net Banking'].map((logo) => (
               <span
                 key={logo}
                 className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-medium border border-slate-700"
@@ -220,7 +196,7 @@ export default function PricingPage() {
               </span>
             ))}
           </div>
-          <p className="text-slate-600 text-xs mt-3">US &amp; international churches pay in $ via Stripe · Indian churches pay in ₹ via Razorpay</p>
+          <p className="text-slate-600 text-xs mt-3">Pay via PayPal · US churches pay in $ via Stripe · Indian churches pay in ₹ via Razorpay</p>
         </div>
 
         {/* FAQ / Contact */}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, adminClient } from '@/lib/api-auth';
+import { requireAuth, resolveChurchId, adminClient } from '@/lib/api-auth';
 
 const ALLOWED_PAYMENT_TYPES = new Set(['one_time', 'recurring']);
 const MIN_PAISE = 100;        // ₹1
@@ -13,10 +13,25 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuth(req.headers.get('authorization'));
   if (!auth.ok) return auth.response;
 
-  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
-  if (!keyId || !keySecret) {
-    return NextResponse.json({ error: 'Payment processing unavailable.' }, { status: 503 });
+  const db = adminClient();
+
+  // Resolve this user's church and fetch their Razorpay keys
+  const churchId = await resolveChurchId(auth.userId);
+  if (!churchId) {
+    return NextResponse.json({ error: 'Church not found. Complete onboarding first.' }, { status: 400 });
+  }
+
+  const { data: keys } = await db
+    .from('church_payment_keys')
+    .select('razorpay_key_id, razorpay_key_secret')
+    .eq('church_id', churchId)
+    .maybeSingle();
+
+  if (!keys?.razorpay_key_id || !keys?.razorpay_key_secret) {
+    return NextResponse.json(
+      { error: 'Razorpay is not configured for this church. Ask your admin to add payment keys in Settings.' },
+      { status: 503 }
+    );
   }
 
   let body: Record<string, unknown>;
@@ -31,17 +46,20 @@ export async function POST(req: NextRequest) {
 
   const safePaymentType = ALLOWED_PAYMENT_TYPES.has(payment_type as string) ? (payment_type as string) : 'one_time';
 
-  const db = adminClient();
-
-  // Verify fund
+  // Verify fund belongs to this church
   const resolvedFundId = typeof fund_id === 'string' && fund_id.length > 0 ? fund_id : null;
   if (resolvedFundId) {
-    const { data: fund } = await db.from('giving_funds').select('id').eq('id', resolvedFundId).eq('is_active', true).maybeSingle();
+    const { data: fund } = await db
+      .from('giving_funds')
+      .select('id')
+      .eq('id', resolvedFundId)
+      .eq('is_active', true)
+      .maybeSingle();
     if (!fund) return NextResponse.json({ error: 'Invalid or inactive fund.' }, { status: 400 });
   }
 
-  // Create Razorpay order
-  const credentials = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+  // Create Razorpay order using this church's keys
+  const credentials = Buffer.from(`${keys.razorpay_key_id}:${keys.razorpay_key_secret}`).toString('base64');
   const rzpRes = await fetch('https://api.razorpay.com/v1/orders', {
     method: 'POST',
     headers: { Authorization: `Basic ${credentials}`, 'Content-Type': 'application/json' },
@@ -54,6 +72,7 @@ export async function POST(req: NextRequest) {
         fund_name: sanitize(fund_name, 100),
         donor_name: sanitize(donor_name, 100),
         user_id: auth.userId ?? '',
+        church_id: churchId,
       },
     }),
   });
@@ -71,6 +90,7 @@ export async function POST(req: NextRequest) {
   await db.from('donations').insert({
     user_id: auth.userId,
     fund_id: resolvedFundId,
+    church_id: churchId,
     amount: amount / 100,
     razorpay_order_id: order.id,
     payment_type: safePaymentType,
@@ -80,5 +100,6 @@ export async function POST(req: NextRequest) {
     currency: 'INR',
   });
 
-  return NextResponse.json({ order_id: order.id, key_id: keyId, amount, currency: 'INR' });
+  // Return the church's public key_id so the frontend can open Razorpay checkout
+  return NextResponse.json({ order_id: order.id, key_id: keys.razorpay_key_id, amount, currency: 'INR' });
 }

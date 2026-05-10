@@ -148,6 +148,19 @@ export async function requireAdmin(authHeader: string | null): Promise<AuthResul
 }
 
 /**
+ * Resolves the church_id for a given authenticated user.
+ * Returns null if the user has no church association yet.
+ */
+export async function resolveChurchId(userId: string): Promise<string | null> {
+  const { data } = await adminClient()
+    .from('church_users')
+    .select('church_id')
+    .eq('id', userId)
+    .maybeSingle();
+  return data?.church_id ?? null;
+}
+
+/**
  * Requires the caller to be any authenticated user.
  */
 export async function requireAuth(

@@ -20,7 +20,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 export default function AdminUsersPage() {
   const router = useRouter();
-  const { profile: currentProfile, loading: authLoading } = useAuth();
+  const { profile: currentProfile, license, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -52,6 +52,17 @@ export default function AdminUsersPage() {
   if (authLoading || !currentProfile || currentProfile.role !== 'admin') return null;
 
   async function updateUser(id: string, updates: Partial<UserProfile>) {
+    // Prevent admin from locking themselves out
+    if (id === currentProfile?.id) {
+      if (updates.status === 'suspended') {
+        toast({ title: 'Action not allowed', description: 'You cannot suspend your own account.', variant: 'destructive' });
+        return;
+      }
+      if (updates.role && updates.role !== 'admin') {
+        toast({ title: 'Action not allowed', description: 'You cannot change your own role.', variant: 'destructive' });
+        return;
+      }
+    }
     setUpdating(id);
     const { error } = await adminWrite('church_users', 'update', { ...updates, updated_at: new Date().toISOString() }, id);
     if (error) {
@@ -83,6 +94,18 @@ export default function AdminUsersPage() {
     if (!addForm.full_name.trim() || !addForm.email.trim() || !addForm.password.trim()) {
       toast({ title: 'Validation error', description: 'Name, email, and password are required.', variant: 'destructive' });
       return;
+    }
+    // Seat-limit check: count active members against plan limit
+    if (license && license.seat_limit > 0) {
+      const activeCount = users.filter((u) => u.status === 'active').length;
+      if (activeCount >= license.seat_limit) {
+        toast({
+          title: 'Seat limit reached',
+          description: `Your ${license.plan} plan allows ${license.seat_limit} active members. Upgrade to add more.`,
+          variant: 'destructive',
+        });
+        return;
+      }
     }
     setAdding(true);
     const { data: { session } } = await supabase.auth.getSession();
