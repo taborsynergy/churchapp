@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, Search, Share2, Loader as Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { AuthGuard } from '@/components/ui/auth-guard';
+import { LockedModule } from '@/components/ui/locked-module';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 interface Verse {
   book_name: string;
@@ -39,6 +42,7 @@ async function fetchVerse(ref: string): Promise<Verse[]> {
 }
 
 export default function BiblePage() {
+  const { canAccess } = useAuth();
   const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [verses, setVerses] = useState<Verse[]>([]);
@@ -72,7 +76,8 @@ export default function BiblePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white pb-16">
+    <AuthGuard>
+      {!canAccess('bible') ? <LockedModule moduleName="Bible" requiredPlan="parish" /> : <div className="min-h-screen bg-slate-950 text-white pb-16">
       <div className="bg-gradient-to-b from-slate-900 to-slate-950 px-4 py-14 text-center">
         <div className="w-16 h-16 rounded-2xl bg-teal-500/10 flex items-center justify-center mx-auto mb-5">
           <BookOpen className="h-8 w-8 text-teal-400" />
@@ -146,6 +151,7 @@ export default function BiblePage() {
           </div>
         )}
       </div>
-    </div>
+    </div>}
+  </AuthGuard>
   );
 }

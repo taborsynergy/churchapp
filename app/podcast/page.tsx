@@ -10,6 +10,9 @@ import {
   Volume2, Download, Clock,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { AuthGuard } from '@/components/ui/auth-guard';
+import { LockedModule } from '@/components/ui/locked-module';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 interface Episode {
   id: string;
@@ -32,6 +35,7 @@ function formatDuration(secs: number | null) {
 const SPEEDS = [1, 1.25, 1.5, 2];
 
 export default function PodcastPage() {
+  const { canAccess } = useAuth();
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState<Episode | null>(null);
@@ -121,7 +125,8 @@ export default function PodcastPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white pb-32">
+    <AuthGuard>
+      {!canAccess('podcast') ? <LockedModule moduleName="Podcast" requiredPlan="parish" /> : <div className="min-h-screen bg-slate-950 text-white pb-32">
       <audio ref={audioRef} />
 
       {/* Header */}
@@ -239,6 +244,7 @@ export default function PodcastPage() {
           </div>
         </div>
       )}
-    </div>
+    </div>}
+  </AuthGuard>
   );
 }
