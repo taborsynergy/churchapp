@@ -77,6 +77,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const canAccess = useCallback((module: string): boolean => {
     if (user?.email === SUPER_ADMIN_EMAIL) return true;
     if (!license) return true; // still loading — don't flash lock screen
+    const now = new Date();
+    if (license.status === 'expired' || license.status === 'suspended') return false;
+    if (license.status === 'trial' && license.trial_ends_at && new Date(license.trial_ends_at) < now) return false;
     return PLAN_LIMITS[license.plan]?.modules.includes(module) ?? false;
   }, [license, user]);
 
