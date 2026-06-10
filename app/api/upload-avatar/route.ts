@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getClientIp } from '@/lib/request-helpers';
+import { checkRateLimitStrict, rateLimitHeaders } from '@/lib/security/rate-limiter';
 import { requireAuth, adminClient, validateImageFile } from '@/lib/api-auth';
 
 // Magic byte signatures for allowed image types

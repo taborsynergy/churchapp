@@ -1,4 +1,8 @@
-'use client';
+const fs = require('fs');
+const src = fs.readFileSync('app/subscribe/success/page.tsx', 'utf8');
+
+// Split into inner component + default export wrapped in Suspense
+const newContent = `'use client';
 
 import { Suspense } from 'react';
 import { useEffect, useState } from 'react';
@@ -56,7 +60,7 @@ function SuccessContent() {
         </div>
 
         <h1 className="text-3xl font-bold text-white mb-3">
-          {status === 'active' ? "You're all set! 🎉" : 'Payment received!'}
+          {status === 'active' ? "You\'re all set! 🎉" : 'Payment received!'}
         </h1>
 
         <p className="text-slate-400 mb-2">
@@ -109,3 +113,6 @@ export default function SubscribeSuccessPage() {
     </Suspense>
   );
 }
+`;
+fs.writeFileSync('app/subscribe/success/page.tsx', newContent);
+console.log('success page fixed with Suspense boundary');

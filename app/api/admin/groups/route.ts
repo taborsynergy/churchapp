@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrStaff, adminClient } from '@/lib/api-auth';
+import { checkRateLimitStrict, rateLimitHeaders } from '@/lib/security/rate-limiter';
+import { getClientIp } from '@/lib/request-helpers';
 
 // ─── Column probe helper ──────────────────────────────────────────────────────
 // Discovers which optional columns exist in the production groups table
@@ -41,6 +43,15 @@ async function safeUpdate(
 // ─── GET /api/admin/groups ────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  // Rate limit: 60 requests per minute (strict — fails closed on DB error)
+  const rl = await checkRateLimitStrict(`admin-groups-get:${getClientIp(req)}`, 60);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again in a moment.' },
+      { status: 429, headers: rateLimitHeaders(rl) }
+    );
+  }
+
   const auth = await requireAdminOrStaff(req.headers.get('authorization'));
   if (!auth.ok) return auth.response;
 
@@ -77,6 +88,15 @@ export async function GET(req: NextRequest) {
 // ─── POST /api/admin/groups ───────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 30 requests per minute (strict — fails closed on DB error)
+  const rl = await checkRateLimitStrict(`admin-groups-post:${getClientIp(req)}`, 30);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again in a moment.' },
+      { status: 429, headers: rateLimitHeaders(rl) }
+    );
+  }
+
   const auth = await requireAdminOrStaff(req.headers.get('authorization'));
   if (!auth.ok) return auth.response;
 

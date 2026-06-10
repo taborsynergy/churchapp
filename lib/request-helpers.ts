@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+/** Extracts the real client IP from standard proxy headers. */
+export function getClientIp(req: NextRequest): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
+    req.headers.get('x-real-ip') ??
+    'unknown'
+  );
+}
+
 const LIMITS: Record<string, number> = {
   default:      64  * 1024,  // 64 KB  — standard API payloads
   upload:       5   * 1024 * 1024, // 5 MB — image uploads
@@ -27,5 +36,16 @@ export function checkBodySize(
     );
   }
 
+  return null;
+}
+
+/** Validates the request Origin against NEXT_PUBLIC_SITE_URL. Returns 403 response on mismatch, null if OK. */
+export function checkOrigin(req: NextRequest): NextResponse | null {
+  const allowed = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!allowed) return null;
+  const origin = req.headers.get('origin');
+  if (origin && origin !== allowed) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
   return null;
 }

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { checkLockout, recordFailedAttempt, clearAttempts } from '@/lib/security/login-lockout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,11 +63,19 @@ function LoginPageInner() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    const lock = checkLockout(email);
+    if (lock.locked) {
+      const mins = Math.ceil(lock.remainingMs / 60000);
+      toast({ title: "Account temporarily locked", description: "Too many failed attempts. Try again in " + mins + " minute(s).", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
+      recordFailedAttempt(email);
       toast({ title: 'Sign in failed', description: 'Invalid email or password. Please try again.', variant: 'destructive' });
     } else if (data.user) {
+      clearAttempts(email);
       const { data: profile } = await supabase.from('church_users').select('role, status, church_id').eq('id', data.user.id).maybeSingle();
       if (profile?.status === 'suspended') {
         await supabase.auth.signOut();

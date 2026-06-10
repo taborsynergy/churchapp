@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getClientIp, checkOrigin } from '@/lib/request-helpers';
 import { requireAuth, adminClient } from '@/lib/api-auth';
+import { checkRateLimit, rateLimitHeaders } from '@/lib/security/rate-limiter';
 
 const ALLOWED_PAYMENT_TYPES = new Set(['one_time', 'recurring']);
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 20 requests per minute (soft — fails open on DB error)
+  const rl = await checkRateLimit(`give:${getClientIp(req)}`, 20);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again in a moment.' },
+      { status: 429, headers: rateLimitHeaders(rl) }
+    );
+  }
+
+  const originErr = checkOrigin(req); if (originErr) return originErr;
+
   // Demo-only route — disabled in production
   if (process.env.NODE_ENV === 'production') {
     return NextResponse.json({ error: 'Not available' }, { status: 404 });

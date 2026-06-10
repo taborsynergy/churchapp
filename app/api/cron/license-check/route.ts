@@ -15,6 +15,19 @@ export async function GET(req: NextRequest) {
   const secret = req.headers.get('x-cron-secret');
   if (secret !== process.env.LICENSE_CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // Idempotency: skip if already ran within the past hour to prevent duplicate warning emails
+  const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString();
+  const { data: recentRun } = await adminClient()
+    .from('audit_logs')
+    .select('created_at')
+    .eq('action', 'cron.license_check')
+    .gte('created_at', oneHourAgo)
+    .limit(1)
+    .maybeSingle();
+  if (recentRun) {
+    return NextResponse.json({ ok: true, skipped: true, reason: 'Already ran within 1 hour' });
+  }
   }
 
   const supabase = adminClient();

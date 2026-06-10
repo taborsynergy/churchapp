@@ -10,12 +10,15 @@ export function middleware(req: NextRequest) {
     pathname.startsWith('/favicon') ||
     pathname.startsWith('/icon') ||
     pathname.startsWith('/apple-touch-icon') ||
-    /\.\w{2,4}$/.test(pathname)
+    /.w{2,4}$/.test(pathname)
   ) {
     return NextResponse.next();
   }
 
-  const scriptSrc = `script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://js.stripe.com https://browser.sentry-cdn.com`;
+  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+  const scriptSrc = isDev
+    ? `script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://js.stripe.com https://browser.sentry-cdn.com`
+    : `script-src 'self' 'nonce-${nonce}' https://checkout.razorpay.com https://js.stripe.com https://browser.sentry-cdn.com`;
 
   const csp = [
     "default-src 'self'",
@@ -34,6 +37,7 @@ export function middleware(req: NextRequest) {
   ].join('; ');
 
   const response = NextResponse.next();
+  if (!isDev) response.headers.set('x-nonce', nonce);
   response.headers.set('Content-Security-Policy', csp);
   response.headers.set('X-Frame-Options', 'SAMEORIGIN');
   response.headers.set('X-Content-Type-Options', 'nosniff');

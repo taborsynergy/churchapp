@@ -11,6 +11,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPayPalWebhook } from '@/lib/paypal';
+import { getClientIp } from '@/lib/request-helpers';
+import { checkRateLimitStrict, rateLimitHeaders } from '@/lib/security/rate-limiter';
 import { adminClient } from '@/lib/api-auth';
 import { checkBodySize } from '@/lib/request-helpers';
 import { audit } from '@/lib/audit';
@@ -23,6 +25,9 @@ import {
 } from '@/lib/email/templates';
 
 export async function POST(req: NextRequest) {
+  const rl = await checkRateLimitStrict(`paypal-webhook:${getClientIp(req)}`, 60);
+  if (!rl.allowed) return NextResponse.json({ error: "Too many requests." }, { status: 429, headers: rateLimitHeaders(rl) });
+
   const sizeError = checkBodySize(req, 'webhook');
   if (sizeError) return sizeError;
 

@@ -21,7 +21,8 @@ export type AuditAction =
   | 'group.leave'
   | 'settings.update'
   | 'license.update'
-  | 'image.upload';
+  | 'image.upload'
+  | 'cron.license_check';
 
 export interface AuditParams {
   churchId?:    string;

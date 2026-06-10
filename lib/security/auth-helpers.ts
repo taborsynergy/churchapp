@@ -8,8 +8,9 @@ export function validatePasswordStrength(password: string): boolean {
 }
 
 export function isValidEmail(email: string): boolean {
-  if (typeof email !== 'string' || email.trim() === '') return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (typeof email !== "string" || email.length > 254) return false;
+  if (email.includes("..") || email.startsWith(".") || email.endsWith(".")) return false;
+  return /^[a-zA-Z0-9.!#$%&'*+/=?^_{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*.[a-zA-Z]{2,}$/.test(email);
 }
 
 export function sanitizeLoginInput(input: string): string {

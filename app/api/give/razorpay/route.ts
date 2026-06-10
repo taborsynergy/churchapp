@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, resolveChurchId, adminClient } from '@/lib/api-auth';
-import { checkBodySize } from '@/lib/request-helpers';
+import { checkBodySize, getClientIp, checkOrigin } from '@/lib/request-helpers';
+import { checkRateLimit, rateLimitHeaders } from '@/lib/security/rate-limiter';
 
 const ALLOWED_PAYMENT_TYPES = new Set(['one_time', 'recurring']);
 const MIN_PAISE = 100;        // ₹1
@@ -13,6 +14,11 @@ function sanitize(v: unknown, max = 200): string {
 export async function POST(req: NextRequest) {
   const sizeError = checkBodySize(req);
   if (sizeError) return sizeError;
+
+  const originErr = checkOrigin(req); if (originErr) return originErr;
+
+  const rl = await checkRateLimit(`give-razorpay:${getClientIp(req)}`, 20);
+  if (!rl.allowed) return NextResponse.json({ error: "Too many requests." }, { status: 429, headers: rateLimitHeaders(rl) });
 
   const auth = await requireAuth(req.headers.get('authorization'));
   if (!auth.ok) return auth.response;

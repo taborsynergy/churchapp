@@ -3,6 +3,8 @@
 // Called from the pricing page after the pastor selects a plan.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getClientIp, checkOrigin } from '@/lib/request-helpers';
+import { checkRateLimitStrict, rateLimitHeaders } from '@/lib/security/rate-limiter';
 import { createPayPalSubscription, PLAN_PRICES_USD } from '@/lib/paypal';
 import { requireAdmin, resolveChurchId, adminClient } from '@/lib/api-auth';
 import { PlanName } from '@/lib/licensing/types';
@@ -14,6 +16,11 @@ const VALID_BILLING             = ['monthly', 'annual'] as const;
 export async function POST(req: NextRequest) {
   const sizeError = checkBodySize(req);
   if (sizeError) return sizeError;
+
+  const originErr = checkOrigin(req); if (originErr) return originErr;
+
+  const rl = await checkRateLimitStrict(`subscribe:${getClientIp(req)}`, 10);
+  if (!rl.allowed) return NextResponse.json({ error: "Too many requests." }, { status: 429, headers: rateLimitHeaders(rl) });
 
   // ── Auth ─────────────────────────────────────────────────────
   const auth = await requireAdmin(req.headers.get('authorization'));

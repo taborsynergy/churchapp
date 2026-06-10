@@ -7,7 +7,7 @@ const SAFE_ERROR_MESSAGES = new Set([
   'Not found.',
 ]);
 
-const SENSITIVE_FIELDS = ['password', 'password_hash', 'encrypted_password', 'secret', 'private_key'];
+const SENSITIVE_KEYS = new Set(['password', 'password_hash', 'encrypted_password', 'secret', 'private_key', 'token', 'api_key', 'cvv', 'ssn', 'pin']);
 
 export function maskPhoneNumber(phone: string): string {
   if (!phone || typeof phone !== 'string') return '';
@@ -23,14 +23,10 @@ export function isSafeErrorMessage(message: string): boolean {
   return SAFE_ERROR_MESSAGES.has(message);
 }
 
-export function redactSensitiveFields(obj: Record<string, unknown>): Record<string, unknown> {
-  const result = { ...obj };
-  SENSITIVE_FIELDS.forEach((field) => {
-    if (Object.prototype.hasOwnProperty.call(result, field)) {
-      delete result[field];
-    }
-  });
-  return result;
+export function redactSensitiveFields(obj: unknown): unknown {
+  return JSON.parse(JSON.stringify(obj, (k, v) =>
+    SENSITIVE_KEYS.has(k.toLowerCase()) ? "[REDACTED]" : v
+  ));
 }
 
 export function stripPrivateUserFields(

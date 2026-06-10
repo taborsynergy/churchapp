@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getClientIp } from '@/lib/request-helpers';
 import { requireAdminOrStaff, adminClient, validateImageFile } from '@/lib/api-auth';
+import { checkRateLimitStrict, rateLimitHeaders } from '@/lib/security/rate-limiter';
 
 const MAGIC_BYTES: { sig: number[]; offset?: number }[] = [
   { sig: [0xff, 0xd8, 0xff] },
@@ -20,6 +22,15 @@ const ALLOWED_FOLDERS = new Set(['uploads', 'sermons', 'events', 'groups', 'anno
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit: 20 requests per minute (strict — fails closed on DB error)
+    const rl = await checkRateLimitStrict(`admin-upload-image:${getClientIp(req)}`, 20);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many upload requests. Please try again in a moment.' },
+        { status: 429, headers: rateLimitHeaders(rl) }
+      );
+    }
+
     const auth = await requireAdminOrStaff(req.headers.get('authorization'));
     if (!auth.ok) return auth.response;
 

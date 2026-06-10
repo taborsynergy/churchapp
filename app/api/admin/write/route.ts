@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrStaff, requireAdmin, adminClient } from '@/lib/api-auth';
-import { checkBodySize } from '@/lib/request-helpers';
+import { checkBodySize, getClientIp } from '@/lib/request-helpers';
+import { checkRateLimitStrict, rateLimitHeaders } from '@/lib/security/rate-limiter';
 
 const ALLOWED_TABLES = new Set([
   'events', 'sermon_series', 'sermons', 'announcements',
@@ -57,6 +58,15 @@ function sanitizePayload(
 export async function POST(req: NextRequest) {
   const sizeError = checkBodySize(req);
   if (sizeError) return sizeError;
+
+  // Rate limit: 40 requests per minute (strict — fails closed on DB error)
+  const rl = await checkRateLimitStrict(`admin-write:${getClientIp(req)}`, 40);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again in a moment.' },
+      { status: 429, headers: rateLimitHeaders(rl) }
+    );
+  }
 
   try {
     // church_users write operations require full admin (not just staff)
