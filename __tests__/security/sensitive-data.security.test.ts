@@ -43,7 +43,7 @@ describe('Security: Sensitive Data Exposure', () => {
       };
 
       const safe = redactSensitiveFields(withPassword);
-      expect(safe).not.toHaveProperty('password');
+      expect((safe as Record<string, unknown>).password).toBe('[REDACTED]');
     });
   });
 
