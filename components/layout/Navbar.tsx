@@ -31,6 +31,8 @@ const navLinks = [
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+
+  if (pathname?.startsWith('/platform-admin')) return null;
   const { user, profile, loading, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 

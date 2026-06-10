@@ -2,10 +2,8 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/components/providers/AuthProvider';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
+import ChurchShell from '@/components/layout/ChurchShell';
 import { Toaster } from '@/components/ui/toaster';
-import { TrialBanner } from '@/components/ui/trial-banner';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -82,12 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to main content
         </a>
         <AuthProvider>
-          <TrialBanner />
-          <div className="flex flex-col min-h-screen">
-            <Navbar />
-            <main id="main-content" className="flex-1">{children}</main>
-            <Footer />
-          </div>
+          <ChurchShell>{children}</ChurchShell>
           <Toaster />
         </AuthProvider>
       </body>

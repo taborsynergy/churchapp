@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/components/providers/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -64,9 +63,22 @@ function ExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
 }
 
 export default function PlatformAdminPage() {
-  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      const email = data.session?.user?.email ?? null;
+      if (!email || email !== OWNER_EMAIL) {
+        router.replace('/login');
+      } else {
+        setUser({ email });
+      }
+      setAuthLoading(false);
+    });
+  }, [router]);
 
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,11 +93,7 @@ export default function PlatformAdminPage() {
   const [extendId, setExtendId] = useState<string | null>(null);
   const [extendDays, setExtendDays] = useState('30');
 
-  useEffect(() => {
-    if (!authLoading && (!user || user.email !== OWNER_EMAIL)) {
-      router.replace('/login');
-    }
-  }, [user, authLoading, router]);
+
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -124,7 +132,7 @@ export default function PlatformAdminPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { if (user?.email === OWNER_EMAIL) load(); }, [user, load]);
+  useEffect(() => { if (user) load(); }, [user, load]);
 
   const filtered = subscribers.filter(s => {
     const matchSearch = !search || s.church_name.toLowerCase().includes(search.toLowerCase()) || s.admin_email.toLowerCase().includes(search.toLowerCase());
