@@ -67,7 +67,7 @@ export default function AdminSermonsPage() {
 
   async function load() {
     const [{ data: s }, { data: sr }] = await Promise.all([
-      supabase.from('sermons').select('*, sermon_series(*)').order('created_at', { ascending: false }),
+      supabase.from('sermons').select('*, sermon_series(*)').order('created_at', { ascending: false }).limit(100),
       supabase.from('sermon_series').select('*').order('created_at', { ascending: false }),
     ]);
     setSermons(s ?? []);

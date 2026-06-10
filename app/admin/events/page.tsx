@@ -36,7 +36,7 @@ export default function AdminEventsPage() {
   const [confirmDlg, setConfirmDlg] = useState<{ open: boolean; description: string; onConfirm: () => void }>({ open: false, description: '', onConfirm: () => {} });
 
   async function load() {
-    const { data } = await supabase.from('events').select('*').order('start_date', { ascending: false });
+    const { data } = await supabase.from('events').select('*').order('start_date', { ascending: false }).limit(100);
     setEvents(data ?? []);
     setLoading(false);
   }

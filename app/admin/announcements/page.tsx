@@ -39,7 +39,7 @@ export default function AdminAnnouncementsPage() {
   const [confirmDlg, setConfirmDlg] = useState<{ open: boolean; description: string; onConfirm: () => void }>({ open: false, description: '', onConfirm: () => {} });
 
   async function load() {
-    const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
+    const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending: false }).limit(100);
     const all = data ?? [];
     const today = new Date().toISOString().slice(0, 10);
     const expired = all.filter((a) => a.expires_at && a.expires_at.slice(0, 10) < today);

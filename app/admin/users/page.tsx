@@ -42,7 +42,7 @@ export default function AdminUsersPage() {
   }, [currentProfile, authLoading]);
 
   async function load() {
-    const { data } = await supabase.from('church_users').select('*').order('created_at', { ascending: false });
+    const { data } = await supabase.from('church_users').select('*').order('created_at', { ascending: false }).limit(500);
     setUsers(data ?? []);
     setLoading(false);
   }

@@ -2,6 +2,8 @@
 const { withSentryConfig } = require('@sentry/nextjs');
 
 const nextConfig = {
+  compress: true,
+  poweredByHeader: false,
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '*.supabase.co' },

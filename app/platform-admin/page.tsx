@@ -96,28 +96,30 @@ export default function PlatformAdminPage() {
 
     if (!licData) { setLoading(false); return; }
 
-    const rows: Subscriber[] = await Promise.all(
-      licData.map(async (l: any) => {
-        const { count } = await supabase
-          .from('church_users')
-          .select('id', { count: 'exact', head: true })
-          .eq('church_id', l.church_id);
-        return {
-          id: l.id,
-          church_id: l.church_id,
-          church_name: l.churches?.name ?? '—',
-          admin_email: l.churches?.email ?? '—',
-          plan: l.plan,
-          status: l.status,
-          trial_ends_at: l.trial_ends_at,
-          expires_at: l.expires_at,
-          seat_limit: l.seat_limit,
-          created_at: l.created_at,
-          paypal_subscription_id: l.paypal_subscription_id ?? null,
-          member_count: count ?? 0,
-        };
-      })
-    );
+    // Fetch all member counts in a single query instead of N per-church queries
+    const churchIds = licData.map((l: any) => l.church_id).filter(Boolean);
+    const { data: memberRows } = churchIds.length
+      ? await supabase.from('church_users').select('church_id').in('church_id', churchIds)
+      : { data: [] };
+    const memberCountMap: Record<string, number> = {};
+    (memberRows ?? []).forEach((m: any) => {
+      memberCountMap[m.church_id] = (memberCountMap[m.church_id] || 0) + 1;
+    });
+
+    const rows: Subscriber[] = licData.map((l: any) => ({
+      id: l.id,
+      church_id: l.church_id,
+      church_name: l.churches?.name ?? '—',
+      admin_email: l.churches?.email ?? '—',
+      plan: l.plan,
+      status: l.status,
+      trial_ends_at: l.trial_ends_at,
+      expires_at: l.expires_at,
+      seat_limit: l.seat_limit,
+      created_at: l.created_at,
+      paypal_subscription_id: l.paypal_subscription_id ?? null,
+      member_count: memberCountMap[l.church_id] ?? 0,
+    }));
     setSubscribers(rows);
     setLoading(false);
   }, []);

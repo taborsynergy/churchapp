@@ -37,7 +37,7 @@ export default function AdminGivingPage() {
 
   async function load() {
     const [{ data: d }, { data: f }] = await Promise.all([
-      supabase.from('donations').select('*, church_users(full_name, email), giving_funds(name)').eq('status', 'completed').order('created_at', { ascending: false }),
+      supabase.from('donations').select('*, church_users(full_name, email), giving_funds(name)').eq('status', 'completed').order('created_at', { ascending: false }).limit(500),
       supabase.from('giving_funds').select('*').order('created_at', { ascending: false }),
     ]);
     setDonations(d ?? []);
