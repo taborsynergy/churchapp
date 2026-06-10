@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrStaff, requireAdmin, adminClient } from '@/lib/api-auth';
+import { checkBodySize } from '@/lib/request-helpers';
 
 const ALLOWED_TABLES = new Set([
   'events', 'sermon_series', 'sermons', 'announcements',
@@ -54,6 +55,9 @@ function sanitizePayload(
 }
 
 export async function POST(req: NextRequest) {
+  const sizeError = checkBodySize(req);
+  if (sizeError) return sizeError;
+
   try {
     // church_users write operations require full admin (not just staff)
     const rawTable = (() => {

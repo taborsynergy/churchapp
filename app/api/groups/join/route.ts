@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, adminClient } from '@/lib/api-auth';
 import { checkRateLimit, rateLimitHeaders } from '@/lib/security/rate-limiter';
+import { checkBodySize } from '@/lib/request-helpers';
 
 export async function POST(req: NextRequest) {
+  const sizeError = checkBodySize(req);
+  if (sizeError) return sizeError;
+
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown';
   const rl = await checkRateLimit(`groups-join:${ip}`, 20);
   if (!rl.allowed) {
@@ -75,7 +79,14 @@ export async function POST(req: NextRequest) {
       role: 'member',
       joined_at: new Date().toISOString(),
     });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // DB trigger raises check_violation when group is full (race-safe)
+    if (error) {
+      if (error.code === '23514' || error.message?.includes('Group is full')) {
+        return NextResponse.json({ error: 'Group is full' }, { status: 400 });
+      }
+      return NextResponse.json({ error: 'Could not join group' }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
   } catch {

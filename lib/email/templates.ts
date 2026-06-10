@@ -1,4 +1,58 @@
 const base = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://app.taborsynergy.com';
+
+// ── PayPal SaaS subscription email templates ──────────────────────────────────
+
+export function subscriptionActivatedHtml(
+  churchName: string,
+  plan: string,
+  expiresAt: string
+): string {
+  const expiry = new Date(expiresAt).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+  return `
+    <p>Hi ${churchName} team 👋</p>
+    <p>Your <strong>ChurchConnect ${plan}</strong> subscription is now <strong>active</strong>!</p>
+    <p>Your plan renews on <strong>${expiry}</strong>. You can manage your subscription anytime from your admin settings.</p>
+    <p><a href="${base}/admin" style="background:#14b8a6;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">Go to Dashboard →</a></p>
+    <p>Thank you for choosing ChurchConnect. We're honoured to serve your ministry.</p>
+    ${footer}
+  `;
+}
+
+export function subscriptionRenewedHtml(
+  churchName: string,
+  plan: string,
+  nextBilling: string
+): string {
+  const next = new Date(nextBilling).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+  return `
+    <p>Hi ${churchName} team,</p>
+    <p>Your <strong>ChurchConnect ${plan}</strong> subscription has been successfully renewed.</p>
+    <p>Next billing date: <strong>${next}</strong></p>
+    <p><a href="${base}/admin/settings" style="background:#14b8a6;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">Manage Subscription</a></p>
+    ${footer}
+  `;
+}
+
+export function subscriptionCancelledHtml(
+  churchName: string,
+  graceEndsAt: string
+): string {
+  const grace = new Date(graceEndsAt).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+  return `
+    <p>Hi ${churchName} team,</p>
+    <p>Your ChurchConnect subscription has been cancelled.</p>
+    <p>You still have access until <strong>${grace}</strong>. After that, your church data will be preserved but access will be restricted.</p>
+    <p>Changed your mind? Reactivate anytime:</p>
+    <p><a href="${base}/pricing" style="background:#14b8a6;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">Reactivate Subscription</a></p>
+    ${footer}
+  `;
+}
 const footer = `
   <hr style="margin:32px 0;border-color:#334155"/>
   <p style="color:#64748b;font-size:12px">

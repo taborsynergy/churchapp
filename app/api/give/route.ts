@@ -2,20 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, adminClient } from '@/lib/api-auth';
 
 const ALLOWED_PAYMENT_TYPES = new Set(['one_time', 'recurring']);
-const IS_DEMO = process.env.NODE_ENV !== 'production';
 
 export async function POST(req: NextRequest) {
+  // Demo-only route — disabled in production
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available' }, { status: 404 });
+  }
+
   const auth = await requireAuth(req.headers.get('authorization'));
   if (!auth.ok) return auth.response;
 
-  // In production, payments must go through the Stripe Edge Function.
-  // The Next.js route only operates in development/demo mode.
-  if (!IS_DEMO) {
-    return NextResponse.json(
-      { error: 'Use the Stripe checkout endpoint for production payments.' },
-      { status: 400 }
-    );
-  }
+  // Redundant runtime guard — belt-and-suspenders for production safety.
 
   try {
     const body = await req.json();
